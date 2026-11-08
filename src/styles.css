@@ -274,7 +274,7 @@ textarea:focus { outline: 2px solid #5eead4; border-color: var(--brand); }
 /* hero banner */
 .hero {
   display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;
-  background: radial-gradient(circle at 85% 30%, #0f3d3a 0%, transparent 45%), linear-gradient(120deg, #06121c, #0a1f2b);
+  background: #0a1a26;
   color: #fff; border-radius: 16px; padding: 26px 28px; box-shadow: 0 8px 24px #0f172a26;
 }
 .hero h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin: 8px 0 6px; }
