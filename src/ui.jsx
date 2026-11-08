@@ -31,6 +31,9 @@ const TONE = {
   Paid: 'green',
   Due: 'gray',
   Partial: 'amber',
+  Open: 'blue',
+  'In Progress': 'amber',
+  Resolved: 'gray',
 };
 
 export const Badge = ({ children }) => <span className={`badge ${TONE[children] || 'gray'}`}>{children}</span>;

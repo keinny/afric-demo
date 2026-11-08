@@ -7,14 +7,23 @@ import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
 import Loans from './pages/Loans';
 import Repayments from './pages/Repayments';
+import { Analytics, Emi, Employees, Notifications, Products, Settings, Support, Verification } from './pages/More';
 
 const PAGES = [
-  { id: 'dashboard', label: 'Dashboard', icon: '▦', el: Dashboard },
+  { id: 'dashboard', label: 'Overview', icon: '▦', el: Dashboard },
   { id: 'customers', label: 'Customers', icon: '◉', el: Customers },
+  { id: 'products', label: 'Loan Products', icon: '◈', el: Products },
   { id: 'applications', label: 'Applications', icon: '✎', el: Applications },
-  { id: 'loans', label: 'Loans', icon: '▤', el: Loans },
-  { id: 'repayments', label: 'Repayments', icon: '⇄', el: Repayments },
-  { id: 'audit', label: 'Activity log', icon: '☰', el: Audit },
+  { id: 'verification', label: 'Verification', icon: '✓', el: Verification },
+  { id: 'loans', label: 'Loan Accounts', icon: '▤', el: Loans },
+  { id: 'emi', label: 'Repayments & EMI', icon: '◷', el: Emi },
+  { id: 'repayments', label: 'Payments', icon: '⇄', el: Repayments },
+  { id: 'notifications', label: 'Notifications', icon: '◔', el: Notifications },
+  { id: 'support', label: 'Customer Support', icon: '☏', el: Support },
+  { id: 'analytics', label: 'Analytics & Reports', icon: '▥', el: Analytics },
+  { id: 'employees', label: 'Employees', icon: '☺', el: Employees },
+  { id: 'audit', label: 'Audit Logs', icon: '☰', el: Audit },
+  { id: 'settings', label: 'Settings', icon: '⚙', el: Settings },
 ];
 
 const fromHash = () => {
@@ -23,7 +32,7 @@ const fromHash = () => {
 };
 
 export default function App() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, loanInfo } = useStore();
   const [page, setPage] = useState(fromHash);
   const [menu, setMenu] = useState(false);
 
@@ -41,7 +50,12 @@ export default function App() {
 
   const current = PAGES.find((p) => p.id === page);
   const Page = current.el;
-  const pendingCount = state.applications.filter((a) => a.status === 'Submitted' || a.status === 'In Review').length;
+  const counts = {
+    applications: state.applications.filter((a) => a.status === 'Submitted' || a.status === 'Approved').length,
+    verification: state.applications.filter((a) => a.status === 'Submitted' || a.status === 'In Review').length,
+    loans: state.loans.filter((l) => loanInfo[l.id].status === 'Overdue').length,
+    support: state.tickets.filter((t) => t.status !== 'Resolved').length,
+  };
 
   return (
     <div className="shell">
@@ -58,7 +72,7 @@ export default function App() {
             <button key={p.id} className={p.id === page ? 'active' : ''} onClick={() => go(p.id)}>
               <span className="ico">{p.icon}</span>
               {p.label}
-              {p.id === 'applications' && pendingCount > 0 && <span className="count">{pendingCount}</span>}
+              {counts[p.id] > 0 && <span className={`count ${p.id === 'loans' ? 'red' : ''}`}>{counts[p.id]}</span>}
             </button>
           ))}
         </nav>
