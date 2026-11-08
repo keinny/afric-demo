@@ -3,7 +3,7 @@ import { PAY_METHODS, can } from '../config';
 import { fmtDate, money, monthKey, monthLabel, product } from '../finance';
 import { useStore } from '../store';
 import { Card, Empty, Kpi, downloadCsv } from '../ui';
-import { Ledger, PaymentForm } from './Loans';
+import { Ledger, PaymentForm, ReceiptModal } from './Loans';
 
 const TABS = [
   ['repayments', 'Repayments Ledger', 'book'],
@@ -38,6 +38,7 @@ function Repayments() {
   const [method, setMethod] = useState('All');
   const [month, setMonth] = useState('All');
   const [adding, setAdding] = useState(false);
+  const [receiptId, setReceiptId] = useState(null);
 
   const months = [...new Set(state.payments.map((p) => monthKey(p.date)))].sort().reverse();
   let run = 0;
@@ -71,7 +72,7 @@ function Repayments() {
       </div>
       <Card
         title="Repayments ledger"
-        sub="Every payment received, split into principal and interest"
+        sub="Every payment received, split into principal and interest · click a row to view its receipt"
         action={
           <div className="actions tight">
             <button className="btn ghost small" onClick={exportCsv}>Export CSV</button>
@@ -92,13 +93,13 @@ function Repayments() {
         </div>
         {rows.length ? (
           <div className="table-wrap">
-            <table className="ledger">
+            <table className="ledger clickable">
               <thead>
                 <tr><th>Date</th><th>Receipt</th><th>Customer</th><th>Loan</th><th>Method</th><th className="num">Principal</th><th className="num">Interest</th><th className="num">Amount</th><th className="num">Cumulative</th></tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id}>
+                  <tr key={r.id} onClick={() => setReceiptId(r.id)}>
                     <td className="nowrap">{fmtDate(r.date)}</td>
                     <td className="mono">{r.id}</td>
                     <td>{r.customer}</td>
@@ -121,6 +122,7 @@ function Repayments() {
         )}
       </Card>
       {adding && <PaymentForm onClose={() => setAdding(false)} />}
+      {receiptId && <ReceiptModal paymentId={receiptId} onClose={() => setReceiptId(null)} />}
     </>
   );
 }

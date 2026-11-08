@@ -422,9 +422,33 @@ input.big { font-size: 18px; font-weight: 700; padding: 10px 12px; }
 .alloc-rows b { font-size: 14px; }
 .alloc p { margin: 8px 0 0; font-size: 12px; color: #115e59; }
 
+/* receipt */
+.receipt-paper { border: 1px solid var(--line); border-radius: 14px; background: #f8fafc; padding: 22px 22px 16px; }
+.receipt-top { text-align: center; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.receipt-top h3 { font-size: 16px; font-weight: 800; letter-spacing: 0.02em; }
+.receipt-top p { margin: 4px 0 8px; font-size: 12px; color: var(--muted); }
+.receipt-no { display: inline-block; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; padding: 3px 10px; }
+.receipt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; margin: 16px 0; }
+.receipt-grid dt { font-size: 11.5px; color: var(--muted); }
+.receipt-grid dd { margin: 2px 0 0; font-size: 13.5px; }
+.brand-text { color: var(--brand); }
+.receipt-alloc { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.receipt-alloc-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 6px; }
+.receipt-alloc .line { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+.receipt-alloc .line b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.receipt-alloc .line.total { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 10px; font-size: 14px; font-weight: 700; }
+.receipt-alloc .line.total b { color: var(--brand); font-size: 17px; font-weight: 800; }
+.receipt-balance { display: flex; justify-content: space-between; background: #eef2f6; border-radius: 8px; padding: 9px 12px; margin-top: 12px; font-size: 13px; }
+.receipt-thanks { text-align: center; font-size: 11.5px; color: var(--muted); margin: 14px 0 0; }
+.modal-foot.spread { justify-content: space-between; border-top: 0; }
+
 @media print {
   .sidebar, .topbar, .ledger-tabs, .actions, .btn { display: none !important; }
   .page { padding: 0; }
+  body.printing-receipt * { visibility: hidden; }
+  body.printing-receipt .receipt-paper, body.printing-receipt .receipt-paper * { visibility: visible; }
+  body.printing-receipt .overlay { background: none; backdrop-filter: none; }
+  body.printing-receipt .receipt-paper { position: fixed; left: 0; top: 0; width: 100%; border: 0; background: #fff; }
 }
 
 /* ledger */
