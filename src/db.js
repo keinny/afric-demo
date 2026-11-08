@@ -14,7 +14,7 @@ export async function loadAll() {
   const out = {};
   for (const [key, table] of Object.entries(TABLES)) {
     let q = supabase.from(table).select('*');
-    q = key === 'audit' ? q.order('at', { ascending: false }).limit(500) : q.order('id');
+    q = key === 'audit' || key === 'sms' ? q.order('at', { ascending: false }).limit(500) : q.order('id');
     const { data, error } = await q;
     if (error) throw new Error(`${table}: ${error.message}`);
     out[key] = data.map(fromRow);
@@ -46,12 +46,12 @@ export async function syncDiff(prev, next) {
     const changed = b.filter((r) => before.get(r.id) !== JSON.stringify(r));
     if (changed.length) {
       const { error } =
-        key === 'audit'
+        key === 'audit' || key === 'sms'
           ? await supabase.from(table).insert(changed.filter((r) => !before.has(r.id)).map(toRow))
           : await supabase.from(table).upsert(changed.map(toRow));
       if (error) throw new Error(`${table}: ${error.message}`);
     }
-    if (key !== 'audit') {
+    if (key !== 'audit' && key !== 'sms') {
       const keep = new Set(b.map((r) => r.id));
       const removed = a.filter((r) => !keep.has(r.id)).map((r) => r.id);
       if (removed.length) {
@@ -75,4 +75,15 @@ export async function syncDiff(prev, next) {
     const { error } = await supabase.from('settings').upsert({ id: 1, ...toRow(next.settings) });
     if (error) throw new Error(`settings: ${error.message}`);
   }
+}
+
+/**
+ * Asks the send-sms Edge Function to send queued SMS.
+ * Returns [{id, status, provider, providerRef, error, sentAt}].
+ */
+export async function sendSms(ids) {
+  const { data, error } = await supabase.functions.invoke('send-sms', { body: { ids } });
+  if (error) throw new Error(error.message || 'SMS function not reachable');
+  if (data?.error) throw new Error(data.error);
+  return (data?.results || []).map(fromRow);
 }

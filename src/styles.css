@@ -672,3 +672,6 @@ table.ledger tr.disb td { background: #f0f6fd; }
 /* tighter tables (staff, audit) */
 table.apps.compact th, table.apps.compact td { padding-left: 11px; padding-right: 11px; }
 table.apps.compact td.wrap-sm { min-width: 130px; }
+
+/* sms */
+table.apps td .wrap-err { white-space: normal; max-width: 220px; margin-top: 3px; }

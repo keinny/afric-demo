@@ -3,6 +3,8 @@ import { BRAND, CHANNEL_POLICY, NOTIFY_RULES, channelAllowed } from '../config';
 import { addDays, fmtDate, money } from '../finance';
 import { useStore } from '../store';
 import { Card, Empty, Icon } from '../ui';
+import SmsOutbox from './SmsOutbox';
+import { SMS_TEMPLATES } from '../sms';
 import { Notifications as StaffAlerts } from './More';
 
 const WA = CHANNEL_POLICY.WhatsApp;
@@ -20,6 +22,9 @@ const TEMPLATES = {
   approved: 'Application {app} for {amount} has been approved and is ready for disbursement.',
   whatsapp: 'Reminder: your instalment of {amount} for loan {loan} is due on {due}.',
 };
+// SMS rules use the exact wording that the SMS provider sends (src/sms.js).
+for (const k of ['disbursement', 'payment', 'upcoming', 'overdue']) TEMPLATES[k] = SMS_TEMPLATES[k];
+
 const fill = (tpl, v) => tpl.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? '');
 
 /** Builds the simulated dispatch log from live records, honouring the rules and the channel policy. */
@@ -91,6 +96,7 @@ export default function Notifications({ go, sub }) {
     ['log', `Dispatch Log (${log.length})`],
     ['rules', `Automated Rules (${activeRules})`],
     ['templates', 'Approved Message Templates'],
+    ['sms', `SMS Outbox (${(state.sms || []).length})`],
     ['alerts', 'Staff Alerts'],
   ];
   const tab = TABS.some((t) => t[0] === sub) ? sub : 'log';
@@ -117,6 +123,7 @@ export default function Notifications({ go, sub }) {
       {tab === 'log' && <DispatchLog log={log} />}
       {tab === 'rules' && <Rules />}
       {tab === 'templates' && <Templates />}
+      {tab === 'sms' && <SmsOutbox />}
       {tab === 'alerts' && <StaffAlerts go={go} />}
     </div>
   );

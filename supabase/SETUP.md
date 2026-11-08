@@ -57,6 +57,48 @@ Then **Actions → Deploy to GitHub Pages → Run workflow**. The live site will
 3. Keep **Confirm email** switched on.
 4. Reset the database password if it was ever shared, and never put the `service_role` / secret key in the app or GitHub.
 
+## 5. SMS (provider-neutral)
+
+The app queues SMS in the `sms_outbox` table; the **`send-sms` Edge Function** sends them through whichever
+provider you configure. Provider keys are Supabase secrets – they never reach the browser.
+
+**a) Database:** run [`patch-002-sms.sql`](patch-002-sms.sql) in the SQL Editor (only if your schema predates it).
+
+**b) Deploy the function:** Supabase → **Edge Functions → Deploy a new function → Via Editor**, name it
+**`send-sms`**, paste the contents of [`functions/send-sms/index.ts`](functions/send-sms/index.ts) and deploy.
+(Or with the Supabase CLI: `supabase functions deploy send-sms`.) Keep **"Verify JWT"** on.
+
+**c) Choose the provider:** Edge Functions → **Secrets** → add `SMS_PROVIDER` and that provider's keys:
+
+| `SMS_PROVIDER` | Other secrets | Notes |
+| --- | --- | --- |
+| `test` *(default)* | – | Nothing is sent; messages show as "TEST · NOT DELIVERED". Use this first. |
+| `http` | `SMS_HTTP_URL`, `SMS_HTTP_HEADERS`, `SMS_HTTP_BODY`, optional `SMS_HTTP_METHOD`, `SMS_HTTP_CONTENT_TYPE` | For **Zamtel Bulk SMS** or any local Zambian provider. Fill in from their API docs. |
+| `africastalking` | `AT_USERNAME`, `AT_API_KEY` | Username `sandbox` uses their test environment. |
+| `twilio` | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, optional `TWILIO_FROM` | ~$0.39 per SMS segment to Zambia. |
+
+`http` example (adjust to your provider's documentation – this is only the shape):
+
+```
+SMS_HTTP_URL          = https://api.your-provider.co.zm/v1/sms/send
+SMS_HTTP_HEADERS      = {"Authorization":"Bearer YOUR_PROVIDER_API_KEY"}
+SMS_HTTP_CONTENT_TYPE = application/json
+SMS_HTTP_BODY         = {"sender":"{{sender}}","to":"{{to}}","message":"{{message}}"}
+```
+
+Placeholders: `{{to}}` (+260971234567), `{{to_local}}` (0971234567), `{{to_digits}}` (260971234567),
+`{{message}}`, `{{sender}}` (the sender name from the app's Settings).
+
+**d) Test:** in the app → **Settings → Send a Test SMS**. The result appears there and in
+**Notifications → SMS Outbox**. Failed messages can be retried from the outbox.
+
+**What sends SMS:** recording a payment and disbursing a loan (if those notification rules are on), the
+**Send SMS reminders** button on Repayments & EMI (overdue / upcoming), and the test button.
+Messages are kept to one 160-character segment where possible. WhatsApp is blocked at every level.
+
+**Before going live:** register the sender name (e.g. `AFRICO`) with ZICTA and the networks through your
+provider – MTN also whitelists sender names and message content.
+
 ## What is enforced in the database
 
 - **Row-level security** on every table: only signed-in, active staff can read; writes are limited by role.
