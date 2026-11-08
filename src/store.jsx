@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
-import { CHANNEL_POLICY, NOTIFY_RULES, ROLES } from './config';
+import { BRAND, CHANNEL_POLICY, NOTIFY_RULES, ROLES } from './config';
 import { addMonths, allocate, buildSchedule, isoToday, money, product, summarize } from './finance';
 import { ids, makeSeed } from './seed';
 
-const KEY = 'afric-demo-v7';
+const KEY = 'afric-demo-v8';
 const Ctx = createContext(null);
 
 function load() {
@@ -178,13 +178,39 @@ function reducer(state, a) {
     }
 
     case 'addTicket': {
-      const t = { ...a.ticket, id: `TCK-${String(state.tickets.length + 1).padStart(3, '0')}`, status: 'Open', createdAt: isoToday() };
+      const t = {
+        priority: 'Medium',
+        description: '',
+        assignedTo: ROLES[state.role].user,
+        ...a.ticket,
+        id: `${BRAND.prefix}-TCK-${String(state.tickets.length + 1).padStart(3, '0')}`,
+        status: 'Open',
+        createdAt: isoToday(),
+        replies: [],
+      };
       return withLog({ ...state, tickets: [t, ...state.tickets] }, `Opened support ticket ${t.id} for ${name(state, t.customerId)}: ${t.subject}.`);
     }
 
     case 'ticketStatus': {
       const tickets = state.tickets.map((t) => (t.id === a.id ? { ...t, status: a.status } : t));
       return withLog({ ...state, tickets }, `Marked ticket ${a.id} as ${a.status}.`);
+    }
+
+    case 'ticketUpdate': {
+      const r = ROLES[state.role];
+      const tickets = state.tickets.map((t) =>
+        t.id === a.id
+          ? {
+              ...t,
+              ...a.changes,
+              replies: a.reply ? [...(t.replies || []), { by: r.user, at: new Date().toISOString(), text: a.reply }] : t.replies || [],
+            }
+          : t
+      );
+      const what = [a.changes?.status && `status ${a.changes.status}`, a.changes?.priority && `priority ${a.changes.priority}`, a.changes?.assignedTo && `assigned to ${a.changes.assignedTo}`, a.reply && 'added a reply']
+        .filter(Boolean)
+        .join(', ');
+      return withLog({ ...state, tickets }, `Updated ticket ${a.id}: ${what || 'no changes'}.`);
     }
 
     default:

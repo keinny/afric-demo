@@ -156,17 +156,26 @@ export function makeSeed() {
   ].map((a, i) => ({ id: `seed-${i}`, at: a.at, user: ROLES[a.who].user, role: ROLES[a.who].label, text: a.text }));
 
   const tickets = [
-    [3, 'Request for payment extension', 'Repayment', 'Open', 2],
-    [1, 'Statement needed for bank', 'Statement', 'Open', 1],
-    [0, 'Confirm final payment date', 'Enquiry', 'Resolved', 9],
-    [4, 'Mobile money payment not reflecting', 'Payment', 'In Progress', 3],
-  ].map(([ci, subject, category, status, ago], i) => ({
-    id: `TCK-${pad(i + 1)}`,
+    [3, 'Request for a 14-day extension on next instalment due to medical bills', 'Repayment', 'In Progress', 'High', 5, 'Customer was hospitalised last month and asks to move the next instalment by two weeks.'],
+    [1, 'Official account statement needed for bank application', 'Account Statement', 'Open', 'Medium', 1, 'Needs a stamped statement for loan AFD-LN-002 showing all payments to date.'],
+    [0, 'Confirm date of final payment and clearance letter', 'Enquiry', 'Resolved', 'Low', 9, 'Wants to know when the loan will be fully paid and how to get a clearance letter.'],
+    [4, 'Mobile money payment not showing on account', 'Payment', 'In Progress', 'High', 3, 'Paid by Airtel Money on Monday but the balance has not changed.'],
+    [9, 'Guidance on uploading a clearer NRC scan', 'Loan Application', 'Open', 'Low', 2, 'First NRC photo was blurry; customer asks how to resend it.'],
+  ].map(([ci, subject, category, status, priority, ago, description], i) => ({
+    id: `${BRAND.prefix}-TCK-${pad(i + 1)}`,
     customerId: customers[ci].id,
     subject,
     category,
     status,
+    priority,
+    description,
+    assignedTo: i % 2 ? ROLES.officer.user : ROLES.finance.user,
     createdAt: addDays(today, -ago),
+    replies: status === 'Resolved'
+      ? [{ by: ROLES.officer.user, at: `${addDays(today, -8)}T11:20:00`, text: 'Final payment is due next month. Clearance letter will be emailed once it clears.' }]
+      : status === 'In Progress'
+        ? [{ by: i % 2 ? ROLES.officer.user : ROLES.finance.user, at: `${addDays(today, -ago + 1)}T10:05:00`, text: 'Looking into this and will call the customer back today.' }]
+        : [],
   }));
 
   // A few collection activities on the loans that are behind.

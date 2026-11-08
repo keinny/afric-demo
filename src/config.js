@@ -15,12 +15,15 @@ export const PRODUCTS = [
 
 // Who can do what. Switch roles from the top bar to try each one.
 export const ROLES = {
-  admin: { label: 'Administrator', user: 'Grace Tembo', can: ['*'] },
+  admin: { label: 'Super Admin', user: 'Kenneth Nondo', can: ['*'] },
   officer: { label: 'Loan Officer', user: 'Peter Lungu', can: ['customer', 'apply'] },
   verifier: { label: 'Verification Officer', user: 'Ruth Sakala', can: ['verify'] },
   manager: { label: 'Credit Manager', user: 'Joseph Mbewe', can: ['decide'] },
   finance: { label: 'Finance Officer', user: 'Mary Chirwa', can: ['disburse', 'payment'] },
 };
+
+// The person signed in to the demo (shown as the avatar in the top bar).
+export const SIGNED_IN = { name: 'Kenneth Nondo', initials: 'KN' };
 
 export const can = (role, perm) => {
   const c = ROLES[role]?.can || [];
