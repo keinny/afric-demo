@@ -48,6 +48,15 @@ Supabase → **Project Settings → API**: copy the **Project URL** and the **an
 
 Then **Actions → Deploy to GitHub Pages → Run workflow**. The live site will now show a sign-in screen.
 
+## 4. Security hardening (do this)
+
+1. **Run [`patch-001-harden-roles.sql`](patch-001-harden-roles.sql)** in the SQL Editor (only needed if you ran
+   `schema.sql` before this patch existed). A sign-in now only gets a role when its email is **confirmed**.
+2. **Turn off public sign-up:** Authentication → **Sign In / Providers** → turn off **Allow new users to sign up**.
+   Staff accounts are then only created by an admin in Authentication → Users.
+3. Keep **Confirm email** switched on.
+4. Reset the database password if it was ever shared, and never put the `service_role` / secret key in the app or GitHub.
+
 ## What is enforced in the database
 
 - **Row-level security** on every table: only signed-in, active staff can read; writes are limited by role.
