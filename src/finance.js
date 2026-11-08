@@ -74,6 +74,40 @@ export function estimateInstallment(productId, amount, months) {
   return rows[0]?.total || 0;
 }
 
+/** Splits each payment into interest and principal (interest first, instalment by instalment). */
+export function allocate(loan, payments) {
+  const pays = payments
+    .filter((p) => p.loanId === loan.id)
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+  const need = loan.schedule.flatMap((r) => [
+    { type: 'interest', amt: r.interest },
+    { type: 'principal', amt: r.principal },
+  ]);
+  let k = 0;
+  let left = need[0]?.amt || 0;
+  const out = {};
+  for (const p of pays) {
+    let amt = p.amount;
+    let interest = 0;
+    let principal = 0;
+    while (amt > 0.004 && k < need.length) {
+      const take = Math.min(amt, left);
+      if (need[k].type === 'interest') interest += take;
+      else principal += take;
+      amt -= take;
+      left -= take;
+      if (left <= 0.004) {
+        k++;
+        left = need[k]?.amt || 0;
+      }
+    }
+    if (amt > 0.004) principal += amt; // overpayment
+    out[p.id] = { interest: r2(interest), principal: r2(principal) };
+  }
+  return out;
+}
+
 /** Applies payments to installments in order and works out balances and arrears. */
 export function summarize(loan, payments, today = isoToday()) {
   const paid = payments.filter((p) => p.loanId === loan.id).reduce((s, p) => s + p.amount, 0);

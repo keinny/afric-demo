@@ -96,7 +96,13 @@ export default function App() {
           <button className="icon-btn menu-btn" onClick={() => setMenu(true)} aria-label="Menu">☰</button>
           <div className="title">
             <p className="crumb muted">{BRAND.name} / {current.label}{route.sub ? ` / ${decodeURIComponent(route.sub)}` : ''}</p>
-            <h1>{page === 'applications' ? (route.sub ? 'Application Review' : 'Loan Applications Pipeline') : current.label}</h1>
+            <h1>
+              {page === 'applications'
+                ? route.sub ? 'Application Review' : 'Loan Applications Pipeline'
+                : page === 'repayments' ? 'Payments & Ledgers'
+                : page === 'dashboard' ? 'Executive Overview'
+                : current.label}
+            </h1>
           </div>
           <label className="role">
             <span className="muted small">Acting as</span>

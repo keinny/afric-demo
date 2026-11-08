@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
 import { ROLES } from './config';
-import { addMonths, buildSchedule, isoToday, money, product, summarize } from './finance';
+import { addMonths, allocate, buildSchedule, isoToday, money, product, summarize } from './finance';
 import { ids, makeSeed } from './seed';
 
 const KEY = 'afric-demo-v3';
@@ -135,7 +135,8 @@ export function StoreProvider({ children }) {
     const today = isoToday();
     const loanInfo = Object.fromEntries(state.loans.map((l) => [l.id, summarize(l, state.payments, today)]));
     const customerName = (id) => name(state, id);
-    return { loanInfo, customerName, today };
+    const split = Object.assign({}, ...state.loans.map((l) => allocate(l, state.payments)));
+    return { loanInfo, customerName, today, split };
   }, [state]);
 
   return <Ctx.Provider value={{ state, dispatch, ...derived }}>{children}</Ctx.Provider>;
