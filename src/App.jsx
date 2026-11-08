@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { BRAND, ROLES } from './config';
 import { useStore } from './store';
 import { Icon } from './ui';
+import TopTools from './TopBar';
 import Applications from './pages/Applications';
 import Audit from './pages/Audit';
 import Customers from './pages/Customers';
@@ -10,7 +11,8 @@ import Loans from './pages/Loans';
 import Repayments from './pages/Repayments';
 import Emi from './pages/Emi';
 import Notifications from './pages/Notifications';
-import { Analytics, Employees, Products, Settings, Support, Verification } from './pages/More';
+import Support from './pages/Support';
+import { Analytics, Employees, Products, Settings, Verification } from './pages/More';
 
 const PAGES = [
   { id: 'dashboard', label: 'Overview', icon: '▦', el: Dashboard },
@@ -39,6 +41,13 @@ export default function App() {
   const [route, setRoute] = useState(fromHash);
   const page = route.id;
   const [menu, setMenu] = useState(false);
+  const [reloads, setReloads] = useState(0);
+  const [toast, setToast] = useState('');
+  const reload = () => {
+    setReloads((n) => n + 1);
+    setToast('Records refreshed');
+    setTimeout(() => setToast(''), 1800);
+  };
 
   useEffect(() => {
     const on = () => setRoute(fromHash());
@@ -108,19 +117,14 @@ export default function App() {
                 : page === 'repayments' ? 'Payment Records & Reconciliation'
                 : page === 'dashboard' ? 'Executive Overview'
                 : page === 'notifications' ? 'Notification & Automation Engine'
+                : page === 'support' ? 'Customer Support Helpdesk'
                 : current.label}
             </h1>
           </div>
-          <label className="role">
-            <span className="muted small">Acting as</span>
-            <select value={state.role} onChange={(e) => dispatch({ type: 'role', role: e.target.value })}>
-              {Object.entries(ROLES).map(([k, r]) => (
-                <option key={k} value={k}>{r.label} – {r.user}</option>
-              ))}
-            </select>
-          </label>
+          <TopTools go={go} onReload={reload} />
         </header>
-        <Page key={page + (route.sub || '')} go={go} sub={route.sub} />
+        {toast && <div className="toast">{toast}</div>}
+        <Page key={page + (route.sub || '') + reloads} go={go} sub={route.sub} />
       </main>
     </div>
   );
