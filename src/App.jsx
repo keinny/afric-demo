@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BRAND, ROLES } from './config';
 import { useStore } from './store';
+import { Icon } from './ui';
 import Applications from './pages/Applications';
 import Audit from './pages/Audit';
 import Customers from './pages/Customers';
@@ -8,7 +9,8 @@ import Dashboard from './pages/Dashboard';
 import Loans from './pages/Loans';
 import Repayments from './pages/Repayments';
 import Emi from './pages/Emi';
-import { Analytics, Employees, Notifications, Products, Settings, Support, Verification } from './pages/More';
+import Notifications from './pages/Notifications';
+import { Analytics, Employees, Products, Settings, Support, Verification } from './pages/More';
 
 const PAGES = [
   { id: 'dashboard', label: 'Overview', icon: '▦', el: Dashboard },
@@ -79,6 +81,9 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-foot">
+          <button className="wa-tag" onClick={() => go('notifications')} title="WhatsApp is locked off by messaging policy">
+            <Icon name="alert" size={14} /> WhatsApp: Restricted
+          </button>
           <button
             className="btn ghost small"
             onClick={() => {
@@ -102,6 +107,7 @@ export default function App() {
                 ? route.sub ? 'Application Review' : 'Loan Applications Pipeline'
                 : page === 'repayments' ? 'Payment Records & Reconciliation'
                 : page === 'dashboard' ? 'Executive Overview'
+                : page === 'notifications' ? 'Notification & Automation Engine'
                 : current.label}
             </h1>
           </div>

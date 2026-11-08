@@ -43,6 +43,37 @@ export const LATE_PENALTY_PCT = 5;
 
 export const COLLECTION_ACTIONS = ['Phone call', 'SMS reminder', 'Field visit', 'Promise to pay', 'Payment collected'];
 
+/*
+ * MESSAGING CHANNEL POLICY — keep this in place for all future changes.
+ * WhatsApp Business policy restricts lending and debt-collection messaging, so the
+ * WhatsApp channel is permanently disabled. `locked: true` means no screen, toggle or
+ * role can switch it on; any attempt is logged as BLOCKED and re-routed to SMS.
+ * Customer messages may only go out by SMS, Email or In-App notification.
+ */
+export const CHANNEL_POLICY = {
+  SMS: { enabled: true, locked: false },
+  Email: { enabled: true, locked: false },
+  'In-App': { enabled: true, locked: false },
+  WhatsApp: {
+    enabled: false,
+    locked: true,
+    reason: 'Disabled – policy & compliance review required',
+    policyUrl: 'https://business.whatsapp.com/policy',
+  },
+};
+export const channelAllowed = (ch) => CHANNEL_POLICY[ch]?.enabled === true;
+
+// Automated notification rules. Customers are only ever messaged on allowed channels.
+export const NOTIFY_RULES = [
+  { id: 'disbursement', name: 'Loan disbursed', channel: 'SMS', trigger: 'When a loan is paid out' },
+  { id: 'payment', name: 'Payment received', channel: 'SMS', trigger: 'When a repayment is recorded' },
+  { id: 'confirmation', name: 'Payment confirmation & receipt', channel: 'Email', trigger: 'When a repayment is recorded' },
+  { id: 'upcoming', name: 'Upcoming instalment reminder', channel: 'SMS', trigger: '3 days before each due date' },
+  { id: 'overdue', name: 'Overdue instalment notice', channel: 'SMS', trigger: '1 day after a missed due date' },
+  { id: 'approved', name: 'Application approved', channel: 'In-App', trigger: 'When an application is approved' },
+  { id: 'whatsapp', name: 'WhatsApp repayment reminder', channel: 'WhatsApp', trigger: 'Before each due date' },
+];
+
 // One palette for every chart, taken from the sidebar navy and brand teal.
 export const CHART = {
   navy: '#0b1f24',
