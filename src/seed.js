@@ -196,5 +196,41 @@ export function makeSeed() {
 
   const rules = { disbursement: true, payment: true, confirmation: true, upcoming: true, overdue: true, approved: true, whatsapp: false };
 
-  return { role: 'admin', customers, applications, loans, payments, audit, tickets, collections, penalties: [], statement, rules };
+  const staff = [
+    ['admin', 'Executive', 'Managing Director & Super Admin', 640],
+    ['manager', 'Operations', 'Head of Credit & Operations', 600],
+    ['officer', 'Loan Origination', 'Senior Loan Officer', 500],
+    ['verifier', 'Risk & Verification', 'Lead KYC Verification Officer', 480],
+    ['finance', 'Finance', 'Senior Finance Officer & Cashier', 540],
+    ['support', 'Customer Service', 'Customer Relationship Officer', 420],
+    ['analyst', 'Analytics', 'Portfolio & Risk Analyst', 360],
+  ].map(([roleKey, department, designation, ago], i) => {
+    const name = ROLES[roleKey].user;
+    const code = { Executive: 'ADM', Operations: 'MGR', 'Loan Origination': 'LO', 'Risk & Verification': 'VER', Finance: 'FIN', 'Customer Service': 'CS', Analytics: 'ANL' }[department];
+    return {
+      id: `${BRAND.prefix}-${code}-${String(i + 1).padStart(2, '0')}`,
+      name,
+      email: `${name.toLowerCase().replace(/\s+/g, '.')}@africo.demo`,
+      phone: `+260 97 100 ${pad(i + 1, 4)}`,
+      department,
+      designation,
+      roleKey,
+      joined: addDays(today, -ago),
+      active: true,
+    };
+  });
+
+  const settings = {
+    clientName: BRAND.legal,
+    representative: 'Titus Katepu',
+    developer: 'Pragma Systems OPC Private Limited',
+    currencyCode: 'ZMW',
+    symbol: 'K',
+    country: 'Zambia',
+    timezone: 'Africa/Lusaka',
+    graceDays: 3,
+    penaltyPct: 5,
+  };
+
+  return { role: 'admin', customers, applications, loans, payments, audit, tickets, collections, penalties: [], statement, rules, staff, settings };
 }

@@ -187,7 +187,7 @@ export function PaymentBody({ loanId, presetAmount, lockLoan, onDone, onCancel }
   const [lid, setLid] = useState(loanId || openLoans[0]?.id);
   const info = loanInfo[lid];
   const loan = state.loans.find((l) => l.id === lid);
-  const pen = info ? penaltyOwed(lid, info, state.penalties) : 0;
+  const pen = info ? penaltyOwed(lid, info, state.penalties, state.settings) : 0;
   const instalment = info ? info.overdueAmt || info.nextDue?.remaining || info.balance : 0;
   const maxPay = info ? info.balance + pen : 0;
   const [amount, setAmount] = useState(String(presetAmount ?? (instalment + pen).toFixed(2)));
@@ -208,7 +208,7 @@ export function PaymentBody({ loanId, presetAmount, lockLoan, onDone, onCancel }
   const changeLoan = (v) => {
     setLid(v);
     const n = loanInfo[v];
-    const p = penaltyOwed(v, n, state.penalties);
+    const p = penaltyOwed(v, n, state.penalties, state.settings);
     setAmount(((n.overdueAmt || n.nextDue?.remaining || n.balance) + p).toFixed(2));
   };
 

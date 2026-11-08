@@ -1,8 +1,11 @@
 import { BRAND, LATE_PENALTY_PCT, PRODUCTS } from './config';
 
 /** Late penalty still owed on a loan: % of the overdue amount, less penalties already paid. */
-export function penaltyOwed(loanId, info, penalties = []) {
-  const charged = Math.round(((info?.overdueAmt || 0) * LATE_PENALTY_PCT)) / 100;
+export function penaltyOwed(loanId, info, penalties = [], settings) {
+  const pct = settings?.penaltyPct ?? LATE_PENALTY_PCT;
+  const grace = settings?.graceDays ?? 0;
+  if ((info?.daysLate || 0) <= grace) return 0; // still inside the grace period
+  const charged = Math.round(((info?.overdueAmt || 0) * pct)) / 100;
   const paid = penalties.filter((p) => p.loanId === loanId).reduce((s, p) => s + p.amount, 0);
   return Math.max(0, Math.round((charged - paid) * 100) / 100);
 }
