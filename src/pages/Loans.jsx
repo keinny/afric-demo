@@ -4,7 +4,7 @@ import { allocate, fmtDate, isoToday, money, penaltyOwed, product } from '../fin
 import { useStore } from '../store';
 import { Badge, Card, Empty, Field, Icon, Modal } from '../ui';
 
-export default function Loans() {
+export default function Loans({ go }) {
   const { state, loanInfo, customerName } = useStore();
   const [filter, setFilter] = useState('All');
   const [openId, setOpenId] = useState(null);
@@ -14,7 +14,7 @@ export default function Loans() {
 
   return (
     <div className="page">
-      <Card title="Loan accounts" sub="Disbursed loans with balances and arrears">
+      <Card title="Loan accounts" sub="Disbursed loans with balances and arrears · click a loan to open its account">
         <div className="tabs">
           {['All', 'Active', 'Overdue', 'Settled'].map((s) => (
             <button key={s} className={filter === s ? 'active' : ''} onClick={() => setFilter(s)}>
@@ -30,7 +30,7 @@ export default function Loans() {
               </thead>
               <tbody>
                 {rows.map(({ l, i }) => (
-                  <tr key={l.id} onClick={() => setOpenId(l.id)}>
+                  <tr key={l.id} onClick={() => (go ? go(`loans/${l.id}`) : setOpenId(l.id))}>
                     <td className="mono">{l.id}</td>
                     <td>{customerName(l.customerId)}</td>
                     <td>{product(l.productId).name}</td>

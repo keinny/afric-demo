@@ -67,7 +67,7 @@ function GlobalSearch({ go }) {
     : [
         ...state.customers.filter((c) => `${c.name} ${c.id} ${c.nrc} ${c.phone}`.toLowerCase().includes(term)).map((c) => ({ kind: 'Customer', title: c.name, sub: `${c.id} · ${c.phone}`, to: 'customers' })),
         ...state.applications.filter((a) => `${a.id} ${customerName(a.customerId)}`.toLowerCase().includes(term)).map((a) => ({ kind: 'Application', title: a.id, sub: `${customerName(a.customerId)} · ${money(a.amount)} · ${a.status}`, to: `applications/${a.id}` })),
-        ...state.loans.filter((l) => `${l.id} ${customerName(l.customerId)}`.toLowerCase().includes(term)).map((l) => ({ kind: 'Loan', title: l.id, sub: `${customerName(l.customerId)} · ${money(l.principal)}`, to: 'loans' })),
+        ...state.loans.filter((l) => `${l.id} ${customerName(l.customerId)}`.toLowerCase().includes(term)).map((l) => ({ kind: 'Loan', title: l.id, sub: `${customerName(l.customerId)} · ${money(l.principal)}`, to: `loans/${l.id}` })),
         ...state.payments.filter((p) => `${p.id} ${p.ref}`.toLowerCase().includes(term)).map((p) => ({ kind: 'Payment', title: p.id, sub: `${money(p.amount)} · ${p.ref || ''}`, to: 'repayments/payments' })),
         ...state.tickets.filter((t) => `${t.id} ${t.subject} ${customerName(t.customerId)}`.toLowerCase().includes(term)).map((t) => ({ kind: 'Ticket', title: t.id, sub: `${customerName(t.customerId)} · ${t.subject}`, to: 'support' })),
       ].slice(0, 8);
