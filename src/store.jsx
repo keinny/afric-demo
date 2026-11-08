@@ -3,7 +3,7 @@ import { ROLES } from './config';
 import { addMonths, allocate, buildSchedule, isoToday, money, product, summarize } from './finance';
 import { ids, makeSeed } from './seed';
 
-const KEY = 'afric-demo-v3';
+const KEY = 'afric-demo-v4';
 const Ctx = createContext(null);
 
 function load() {
@@ -105,6 +105,29 @@ function reducer(state, a) {
         { ...state, payments: [...state.payments, pay] },
         `Recorded ${a.method} payment of ${money(pay.amount)} on ${loan.id} (${name(state, loan.customerId)}), receipt ${pay.id}.`
       );
+    }
+
+    case 'collectLog': {
+      const r = ROLES[state.role];
+      const loan = state.loans.find((l) => l.id === a.loanId);
+      const entry = {
+        id: `COL-${String(state.collections.length + 1).padStart(3, '0')}`,
+        loanId: a.loanId,
+        action: a.action,
+        note: a.note || '',
+        promiseDate: a.promiseDate || null,
+        at: new Date().toISOString(),
+        by: r.user,
+      };
+      return withLog(
+        { ...state, collections: [entry, ...state.collections] },
+        `Collections: ${a.action.toLowerCase()} on ${a.loanId} (${name(state, loan.customerId)})${a.promiseDate ? `, promised ${a.promiseDate}` : ''}.`
+      );
+    }
+
+    case 'penalty': {
+      const pen = { id: `PEN-${String(state.penalties.length + 1).padStart(3, '0')}`, loanId: a.loanId, amount: +a.amount, method: a.method, date: a.date || isoToday(), by: ROLES[state.role].user };
+      return withLog({ ...state, penalties: [...state.penalties, pen] }, `Collected late penalty of ${money(pen.amount)} on ${a.loanId} (${pen.id}).`);
     }
 
     case 'addTicket': {

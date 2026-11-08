@@ -158,5 +158,21 @@ export function makeSeed() {
     createdAt: addDays(today, -ago),
   }));
 
-  return { role: 'admin', customers, applications, loans, payments, audit, tickets };
+  // A few collection activities on the loans that are behind.
+  const collections = [
+    [3, 'Phone call', 'Customer says salary was delayed this month.', 6, null],
+    [3, 'Promise to pay', 'Will pay one instalment on Friday.', 4, 3],
+    [4, 'SMS reminder', 'Automatic reminder sent.', 5, null],
+    [4, 'Field visit', 'Visited shop – owner away, left notice.', 2, null],
+  ].map(([li, action, note, ago, promiseIn], i) => ({
+    id: `COL-${pad(i + 1)}`,
+    loanId: loans[li]?.id,
+    action,
+    note,
+    at: `${addDays(today, -ago)}T10:30:00`,
+    promiseDate: promiseIn ? addDays(today, promiseIn - ago) : null,
+    by: ROLES.finance.user,
+  })).filter((c) => c.loanId);
+
+  return { role: 'admin', customers, applications, loans, payments, audit, tickets, collections, penalties: [] };
 }
