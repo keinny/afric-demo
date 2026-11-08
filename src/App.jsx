@@ -12,7 +12,10 @@ import Repayments from './pages/Repayments';
 import Emi from './pages/Emi';
 import Notifications from './pages/Notifications';
 import Support from './pages/Support';
-import { Analytics, Employees, Products, Settings, Verification } from './pages/More';
+import Analytics from './pages/Analytics';
+import Staff from './pages/Staff';
+import Settings from './pages/Settings';
+import { Products, Verification } from './pages/More';
 
 const PAGES = [
   { id: 'dashboard', label: 'Overview', icon: '▦', el: Dashboard },
@@ -26,7 +29,7 @@ const PAGES = [
   { id: 'notifications', label: 'Notifications', icon: '◔', el: Notifications },
   { id: 'support', label: 'Customer Support', icon: '☏', el: Support },
   { id: 'analytics', label: 'Analytics & Reports', icon: '▥', el: Analytics },
-  { id: 'employees', label: 'Employees', icon: '☺', el: Employees },
+  { id: 'employees', label: 'Employees', icon: '☺', el: Staff },
   { id: 'audit', label: 'Audit Logs', icon: '☰', el: Audit },
   { id: 'settings', label: 'Settings', icon: '⚙', el: Settings },
 ];
@@ -119,6 +122,10 @@ export default function App() {
                 : page === 'notifications' ? 'Notification & Automation Engine'
                 : page === 'support' ? 'Customer Support Helpdesk'
                 : page === 'loans' ? 'Loan Accounts & Ledger'
+                : page === 'analytics' ? 'Business Intelligence & Reports'
+                : page === 'employees' ? 'Staff & Role Management'
+                : page === 'audit' ? 'System Audit Trail'
+                : page === 'settings' ? 'System Settings'
                 : current.label}
             </h1>
           </div>

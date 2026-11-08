@@ -26,7 +26,20 @@ export const ROLES = {
   verifier: { label: 'Verification Officer', user: 'Ruth Sakala', can: ['verify'] },
   manager: { label: 'Credit Manager', user: 'Joseph Mbewe', can: ['decide'] },
   finance: { label: 'Finance Officer', user: 'Mary Chirwa', can: ['disburse', 'payment'] },
+  support: { label: 'Customer Support Officer', user: 'Grace Tembo', can: ['customer'] },
+  analyst: { label: 'Business Analyst', user: 'Daniel Sichone', can: [] },
 };
+
+// Departments used on the Employees page (code is used in staff numbers, e.g. AFR-LO-03).
+export const DEPARTMENTS = [
+  { name: 'Executive', code: 'ADM' },
+  { name: 'Operations', code: 'MGR' },
+  { name: 'Loan Origination', code: 'LO' },
+  { name: 'Risk & Verification', code: 'VER' },
+  { name: 'Finance', code: 'FIN' },
+  { name: 'Customer Service', code: 'CS' },
+  { name: 'Analytics', code: 'ANL' },
+];
 
 // The person signed in to the demo (shown as the avatar in the top bar).
 export const SIGNED_IN = { name: 'Kenneth Nondo', initials: 'KN' };
@@ -85,11 +98,11 @@ export const NOTIFY_RULES = [
 
 // One palette for every chart, taken from the sidebar navy and brand teal.
 export const CHART = {
-  navy: '#0b1f24',
-  teal: '#0f766e',
-  mid: '#14b8a6',
-  light: '#5eead4',
-  pale: '#ccfbf1',
+  navy: '#06172e',
+  teal: '#004e96',
+  mid: '#2b78c8',
+  light: '#7fb0e6',
+  pale: '#dce9f9',
   grey: '#cbd5e1',
   axis: '#64748b',
   grid: '#e2e8f0',

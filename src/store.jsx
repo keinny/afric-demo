@@ -1,17 +1,23 @@
 import { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
-import { BRAND, CHANNEL_POLICY, NOTIFY_RULES, ROLES } from './config';
+import { BRAND, CHANNEL_POLICY, DEPARTMENTS, NOTIFY_RULES, ROLES } from './config';
 import { addMonths, allocate, buildSchedule, isoToday, money, product, summarize } from './finance';
 import { ids, makeSeed } from './seed';
 
-const KEY = 'afric-demo-v9';
+const KEY = 'afric-demo-v11';
 const Ctx = createContext(null);
 
 function load() {
+  const seed = makeSeed();
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      // fill in any section added in a newer version of the demo (e.g. settings, staff)
+      for (const k of Object.keys(seed)) if (saved[k] === undefined) saved[k] = seed[k];
+      return saved;
+    }
   } catch {}
-  return makeSeed();
+  return seed;
 }
 
 const nextNum = (list) => list.length + 1;
@@ -175,6 +181,37 @@ function reducer(state, a) {
         { ...state, payments: [...state.payments, pay], statement: state.statement.filter((s) => s.id !== a.lineId) },
         `Matched statement deposit ${line.ref} (${money(line.amount)}) to ${loan.id} – ${name(state, loan.customerId)}, receipt ${pay.id}.`
       );
+    }
+
+    case 'updateSettings': {
+      const changed = Object.keys(a.settings).filter((k) => String(a.settings[k]) !== String(state.settings?.[k]));
+      if (!changed.length) return state;
+      return withLog({ ...state, settings: { ...state.settings, ...a.settings } }, `Updated system settings: ${changed.join(', ')}.`);
+    }
+
+    case 'addStaff': {
+      const dept = DEPARTMENTS.find((d) => d.name === a.staff.department) || DEPARTMENTS[0];
+      const s = {
+        ...a.staff,
+        id: `${BRAND.prefix}-${dept.code}-${String(state.staff.length + 1).padStart(2, '0')}`,
+        joined: isoToday(),
+      };
+      return withLog({ ...state, staff: [...state.staff, s] }, `Created staff profile ${s.id} for ${s.name} (${ROLES[s.roleKey].label}, ${s.department}).`);
+    }
+
+    case 'updateStaff': {
+      const staff = state.staff.map((s) => (s.id === a.id ? { ...s, ...a.changes } : s));
+      const s = staff.find((x) => x.id === a.id);
+      return withLog({ ...state, staff }, `Updated staff profile ${s.id} (${s.name}).`);
+    }
+
+    case 'toggleStaff': {
+      const target = state.staff.find((s) => s.id === a.id);
+      if (target.roleKey === 'admin' && target.active && state.staff.filter((s) => s.roleKey === 'admin' && s.active).length === 1) {
+        return withLog(state, `Blocked deactivation of ${target.id} – at least one active Super Admin is required.`);
+      }
+      const staff = state.staff.map((s) => (s.id === a.id ? { ...s, active: !s.active } : s));
+      return withLog({ ...state, staff }, `${target.active ? 'Deactivated' : 'Re-activated'} staff account ${target.id} (${target.name}).`);
     }
 
     case 'addTicket': {

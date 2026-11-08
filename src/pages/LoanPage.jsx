@@ -247,12 +247,15 @@ function PaymentsTab({ loan, pays, pens, split, onReceipt }) {
 
 /* ---------- Loan agreement preview ---------- */
 function Agreement({ loan, cust, p, rows, maturity, rateLabel, methodLabel }) {
+  const { state } = useStore();
+  const LATE = state.settings?.penaltyPct ?? LATE_PENALTY_PCT;
+  const GRACE = state.settings?.graceDays ?? 0;
   const totalRepay = rows.reduce((s, r) => s + r.total, 0);
   const sections = [
     ['1. The loan', `${BRAND.legal} ("the Lender") agrees to lend ${cust.name}, NRC ${cust.nrc} ("the Borrower"), the sum of ${money(loan.principal)} under the ${p.name} product. The money was paid out on ${fmtDate(loan.disbursedOn)} by ${loan.disburseMethod}.`],
     ['2. Interest', `Interest is charged at ${loan.ratePct}% per month (${rateLabel}) using the ${methodLabel.toLowerCase()} method. Total interest over the term is ${money(totalRepay - loan.principal)}.`],
     ['3. Repayment', `The Borrower will repay ${money(totalRepay)} in ${loan.months} monthly instalments of about ${money(rows[0].total)}, starting ${fmtDate(rows[0].due)} and ending ${fmtDate(maturity)}, as set out in the schedule.`],
-    ['4. Late payment', `If an instalment is not paid by its due date, a late penalty of ${LATE_PENALTY_PCT}% of the overdue amount may be charged. Payments clear penalties first, then interest, then principal.`],
+    ['4. Late payment', `If an instalment is still unpaid more than ${GRACE} day${GRACE === 1 ? "" : "s"} after its due date, a late penalty of ${LATE}% of the overdue amount may be charged. Payments clear penalties first, then interest, then principal.`],
     ['5. Early settlement', 'The Borrower may repay the full balance at any time. Interest for instalments not yet due is not charged on early settlement.'],
     ['6. Communication', 'The Lender will contact the Borrower only by SMS, email, phone call or in-app message. WhatsApp is not used for any loan or collection messages.'],
   ];
@@ -282,7 +285,7 @@ function Agreement({ loan, cust, p, rows, maturity, rateLabel, methodLabel }) {
 function Settlement({ loan, info, rows, pens }) {
   const { state } = useStore();
   const [date, setDate] = useState(isoToday());
-  const penalty = penaltyOwed(loan.id, info, state.penalties || []);
+  const penalty = penaltyOwed(loan.id, info, state.penalties || [], state.settings);
   const principalLeft = info.principalOutstanding;
   // interest on instalments already due by the settlement date that hasn't been paid yet
   const interestDue = rows

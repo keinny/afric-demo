@@ -6,7 +6,7 @@ import { Badge, Empty, Field, Icon, Modal, downloadCsv } from '../ui';
 import { LoanDetail, PaymentBody, PaymentForm, ReceiptModal } from './Loans';
 
 const r2 = (n) => Math.round(n * 100) / 100;
-const penaltyFor = (remaining) => r2((remaining * LATE_PENALTY_PCT) / 100);
+const penaltyFor = (remaining, pct = LATE_PENALTY_PCT) => r2((remaining * pct) / 100);
 const BUCKETS = [
   ['1–30 days', 1, 30],
   ['31–60 days', 31, 60],
@@ -33,7 +33,7 @@ export default function Emi({ go, sub }) {
   const exportOverdue = () =>
     downloadCsv('overdue-instalments.csv', [
       ['Borrower', 'Account', 'Instalment', 'Due date', 'Days overdue', 'Remaining due', 'Late penalty', 'Phone'],
-      ...overdue.map((r) => [r.customer, r.loan.id, r.no, r.due, r.days, r.remaining, penaltyFor(r.remaining), state.customers.find((c) => c.id === r.loan.customerId)?.phone]),
+      ...overdue.map((r) => [r.customer, r.loan.id, r.no, r.due, r.days, r.remaining, penaltyFor(r.remaining, state.settings?.penaltyPct), state.customers.find((c) => c.id === r.loan.customerId)?.phone]),
     ]);
 
   const TABS = [
@@ -103,7 +103,7 @@ export default function Emi({ go, sub }) {
                           <td className="num red-text strong">{money(r.remaining)}</td>
                           <td className="num muted">
                             {(() => {
-                              const owed = Math.min(penaltyFor(r.remaining), penaltyOwed(r.loan.id, loanInfo[r.loan.id], state.penalties));
+                              const owed = Math.min(penaltyFor(r.remaining, state.settings?.penaltyPct), penaltyOwed(r.loan.id, loanInfo[r.loan.id], state.penalties, state.settings));
                               return owed > 0 ? `+${money(owed)}` : <span className="green-text">Paid</span>;
                             })()}
                           </td>
@@ -181,7 +181,7 @@ function CollectModal({ row, onClose }) {
   const { state, dispatch, loanInfo } = useStore();
   const canPay = can(state.role, 'payment');
   const isLate = row.state === 'Overdue';
-  const penalty = isLate ? penaltyOwed(row.loan.id, loanInfo[row.loan.id], state.penalties) : 0;
+  const penalty = isLate ? penaltyOwed(row.loan.id, loanInfo[row.loan.id], state.penalties, state.settings) : 0;
   const [mode, setMode] = useState(canPay ? 'pay' : 'log');
   const [action, setAction] = useState('Phone call');
   const [note, setNote] = useState('');
@@ -209,7 +209,7 @@ function CollectModal({ row, onClose }) {
     <Modal title={`Collect · ${row.loan.id}`} sub={`${row.customer} · ${cust?.phone || ''}`} onClose={onClose}>
       <div className="collect-summary">
         <div><span>Instalment #{row.no}</span><strong>{money(row.remaining)}</strong><em>{isLate ? `${row.days} days late` : `Due ${fmtDate(row.due)}`}</em></div>
-        {isLate && <div><span>Late penalty ({LATE_PENALTY_PCT}%)</span><strong className="red-text">+{money(penalty)}</strong><em>still owed</em></div>}
+        {isLate && <div><span>Late penalty ({state.settings?.penaltyPct ?? LATE_PENALTY_PCT}%)</span><strong className="red-text">+{money(penalty)}</strong><em>still owed</em></div>}
       </div>
 
       <div className="seg">
