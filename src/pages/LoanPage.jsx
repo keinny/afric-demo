@@ -29,6 +29,35 @@ function scheduleRows(loan, info, penalties, today) {
   });
 }
 
+/** Borrower details + schedule table for one loan, used by every printed statement. */
+export function loanStatementHtml(loan, info, cust, penalties, today) {
+  const p = product(loan.productId);
+  const rows = scheduleRows(loan, info, penalties, today);
+  const t = rows.reduce(
+    (a, r) => ({ principal: a.principal + r.principal, interest: a.interest + r.interest, fees: a.fees + r.fees, totalDue: a.totalDue + r.totalDue, paid: a.paid + r.paid, remaining: a.remaining + r.remaining }),
+    { principal: 0, interest: 0, fees: 0, totalDue: 0, paid: 0, remaining: 0 }
+  );
+  const maturity = loan.schedule[loan.schedule.length - 1].due;
+  return (
+    facts([
+      ['Borrower', `${cust.name} (${cust.id})`],
+      ['NRC Number', cust.nrc],
+      ['Account', loan.id],
+      ['Facility', p.name],
+      ['Principal', money(loan.principal)],
+      ['Interest', `${loan.ratePct * 12}% p.a. (${loan.ratePct}% per month, ${loan.method === 'flat' ? 'flat interest' : 'reducing balance'})`],
+      ['Disbursed', `${fmtDate(loan.disbursedOn)} · Maturity ${fmtDate(maturity)}`],
+      ['Total Repaid', money(t.paid)],
+      ['Current Balance', money(t.remaining)],
+    ]) +
+    table(
+      ['#', 'Due Date', { label: 'Principal', num: true }, { label: 'Interest', num: true }, { label: 'Fees', num: true }, { label: 'Total Due', num: true }, { label: 'Paid', num: true }, { label: 'Remaining', num: true }, 'Status'],
+      rows.map((r) => [r.no, fmtDate(r.due), money(r.principal), money(r.interest), money(r.fees), money(r.totalDue), money(r.paid), money(r.remaining), r.status]),
+      ['', 'Schedule Summary Total:', money(t.principal), money(t.interest), money(t.fees), money(t.totalDue), money(t.paid), money(t.remaining), '']
+    )
+  );
+}
+
 function LoanPage({ id, go }) {
   const { state, loanInfo, split, today } = useStore();
   const [tab, setTab] = useState('schedule');
@@ -62,21 +91,7 @@ function LoanPage({ id, go }) {
     printHtml(
       docTitle(),
       docHead('Official Borrower Statement of Account', [`Date: ${fmtDate(isoToday())}`, `Account: ${loan.id}`]) +
-        facts([
-          ['Borrower', `${cust.name} (${cust.id})`],
-          ['NRC Number', cust.nrc],
-          ['Facility', p.name],
-          ['Principal', money(loan.principal)],
-          ['Interest', `${rateLabel} (${loan.ratePct}% per month, ${methodLabel.toLowerCase()})`],
-          ['Disbursed', `${fmtDate(loan.disbursedOn)} · Maturity ${fmtDate(maturity)}`],
-          ['Total Repaid', money(totals.paid)],
-          ['Current Balance', money(totals.remaining)],
-        ]) +
-        table(
-          ['#', 'Due Date', { label: 'Principal', num: true }, { label: 'Interest', num: true }, { label: 'Fees', num: true }, { label: 'Total Due', num: true }, { label: 'Paid', num: true }, { label: 'Remaining', num: true }, 'Status'],
-          rows.map((r) => [r.no, fmtDate(r.due), money(r.principal), money(r.interest), money(r.fees), money(r.totalDue), money(r.paid), money(r.remaining), r.status]),
-          ['', 'Schedule Summary Total:', money(totals.principal), money(totals.interest), money(totals.fees), money(totals.totalDue), money(totals.paid), money(totals.remaining), '']
-        )
+        loanStatementHtml(loan, info, cust, state.penalties || [], today)
     );
 
   const TABS = [
@@ -234,7 +249,7 @@ function PaymentsTab({ loan, pays, pens, split, onReceipt }) {
 function Agreement({ loan, cust, p, rows, maturity, rateLabel, methodLabel }) {
   const totalRepay = rows.reduce((s, r) => s + r.total, 0);
   const sections = [
-    ['1. The loan', `${BRAND.name} ("the Lender") agrees to lend ${cust.name}, NRC ${cust.nrc} ("the Borrower"), the sum of ${money(loan.principal)} under the ${p.name} product. The money was paid out on ${fmtDate(loan.disbursedOn)} by ${loan.disburseMethod}.`],
+    ['1. The loan', `${BRAND.legal} ("the Lender") agrees to lend ${cust.name}, NRC ${cust.nrc} ("the Borrower"), the sum of ${money(loan.principal)} under the ${p.name} product. The money was paid out on ${fmtDate(loan.disbursedOn)} by ${loan.disburseMethod}.`],
     ['2. Interest', `Interest is charged at ${loan.ratePct}% per month (${rateLabel}) using the ${methodLabel.toLowerCase()} method. Total interest over the term is ${money(totalRepay - loan.principal)}.`],
     ['3. Repayment', `The Borrower will repay ${money(totalRepay)} in ${loan.months} monthly instalments of about ${money(rows[0].total)}, starting ${fmtDate(rows[0].due)} and ending ${fmtDate(maturity)}, as set out in the schedule.`],
     ['4. Late payment', `If an instalment is not paid by its due date, a late penalty of ${LATE_PENALTY_PCT}% of the overdue amount may be charged. Payments clear penalties first, then interest, then principal.`],
@@ -246,7 +261,7 @@ function Agreement({ loan, cust, p, rows, maturity, rateLabel, methodLabel }) {
       docTitle(),
       docHead('Loan Agreement (Preview)', [`Date: ${fmtDate(isoToday())}`, `Account: ${loan.id}`]) +
         sections.map(([h, t]) => `<h2>${h}</h2><p>${t.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`).join('') +
-        `<div class="sign"><div>Borrower: ${cust.name}</div><div>For ${BRAND.name}</div></div>`
+        `<div class="sign"><div>Borrower: ${cust.name}</div><div>For ${BRAND.legal}</div></div>`
     );
   return (
     <Card title="Loan agreement preview" sub="Generated from this account's terms – for demonstration only, not legal advice" action={<button className="btn soft small" onClick={print}><Icon name="file" size={14} /> Print Agreement</button>}>
@@ -257,7 +272,7 @@ function Agreement({ loan, cust, p, rows, maturity, rateLabel, methodLabel }) {
             <p>{t}</p>
           </div>
         ))}
-        <div className="sign-row"><div>Borrower: {cust.name}</div><div>For {BRAND.name}</div></div>
+        <div className="sign-row"><div>Borrower: {cust.name}</div><div>For {BRAND.legal}</div></div>
       </div>
     </Card>
   );

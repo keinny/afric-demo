@@ -3,7 +3,7 @@ import { BRAND, CHANNEL_POLICY, NOTIFY_RULES, ROLES } from './config';
 import { addMonths, allocate, buildSchedule, isoToday, money, product, summarize } from './finance';
 import { ids, makeSeed } from './seed';
 
-const KEY = 'afric-demo-v8';
+const KEY = 'afric-demo-v9';
 const Ctx = createContext(null);
 
 function load() {

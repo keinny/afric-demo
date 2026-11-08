@@ -116,6 +116,17 @@ export const Kpi = ({ label, value, sub, icon, tone = 'slate', trend, onClick })
   </div>
 );
 
+/**
+ * Company logo. The source PNG has wide empty margins, so it is shown inside a
+ * cropping frame (the logo + name area of the 1920×1280 image).
+ * `withTagline` keeps the slogan line underneath.
+ */
+export const Logo = ({ withTagline = false, className = '' }) => (
+  <span className={`logo-crop ${withTagline ? 'tall' : ''} ${className}`}>
+    <img src={`${import.meta.env.BASE_URL}aca-logo.png`} alt="Africo Cash Advance" />
+  </span>
+);
+
 export function downloadCsv(filename, rows) {
   const csv = rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
   const a = document.createElement('a');

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BRAND, ROLES } from './config';
 import { useStore } from './store';
-import { Icon } from './ui';
+import { Icon, Logo } from './ui';
 import TopTools from './TopBar';
 import Applications from './pages/Applications';
 import Audit from './pages/Audit';
@@ -74,10 +74,10 @@ export default function App() {
     <div className="shell">
       <aside className={`sidebar ${menu ? 'open' : ''}`}>
         <div className="brand">
-          <div className="logo">{BRAND.name[0]}</div>
-          <div>
+          <div className="logo-tile"><Logo /></div>
+          <div className="brand-line">
             <strong>{BRAND.name}</strong>
-            <span>Demo system</span>
+            <span>LMS · Demo</span>
           </div>
         </div>
         <nav>

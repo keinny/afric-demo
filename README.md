@@ -1,4 +1,4 @@
-# Afric Demo – Loan Management
+# Africo Cash Advance – Loan Management Demo
 
 A browser-only demo of a loan management system, built with React, Vite and Recharts.
 All data lives in the visitor's browser (localStorage); use **Reset demo data** in the sidebar to start over.

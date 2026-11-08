@@ -1,10 +1,16 @@
 // Change these to rebrand the demo.
 export const BRAND = {
-  name: 'Afric Demo Lending',
-  tagline: 'Loan operations & portfolio overview',
-  prefix: 'AFD', // used in application / loan / receipt numbers
+  name: 'Africo Cash Advance',
+  legal: 'Africo Cash Advance Limited', // used on receipts, statements and agreements
+  short: 'Africo',
+  tagline: 'Elevating Finances, Empowering Lives',
+  logo: 'aca-logo.png', // in /public
+  prefix: 'AFR', // used in application / loan / receipt numbers
   currency: 'K',
 };
+
+/** Full URL of the logo (works inside print windows too). */
+export const logoUrl = () => new URL(`${import.meta.env.BASE_URL}${BRAND.logo}`, window.location.href).href;
 
 // Monthly interest rate (%), repayment method and limits per product.
 export const PRODUCTS = [

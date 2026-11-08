@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { BRAND, PAY_METHODS, can } from '../config';
 import { allocate, fmtDate, isoToday, money, penaltyOwed, product } from '../finance';
 import { useStore } from '../store';
-import { Badge, Card, Empty, Field, Icon, Modal } from '../ui';
+import { Badge, Card, Empty, Field, Icon, Logo, Modal } from '../ui';
+import { docTitle, facts, printHtml, receiptHead } from '../print';
 
 export default function Loans({ go }) {
   const { state, loanInfo, customerName } = useStore();
@@ -288,41 +289,6 @@ export function PaymentForm({ loanId, onClose }) {
   );
 }
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-
-/** Opens a plain A4 print document in a new window with a diagonal demo watermark, then prints it. */
-export function printDocument(title, items) {
-  const body = items
-    .map(([kind, label, value]) => {
-      if (kind === 'h1') return `<h1>${esc(label)}</h1>`;
-      if (kind === 'sub') return `<p class="sub">${esc(label)}</p>`;
-      return `<div>${label ? `<span>${esc(label)}:</span> ` : ''}${esc(value)}</div>`;
-    })
-    .join('');
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
-<style>
-  @page { size: A4; margin: 18mm; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 40px 56px; font-size: 14px; line-height: 1.55; }
-  h1 { font-size: 20px; font-weight: 800; margin: 0 0 18px; letter-spacing: 0.01em; }
-  .sub { margin: 0 0 18px; font-size: 15px; }
-  span { color: #334155; }
-  .wm { position: fixed; top: 45%; left: 50%; transform: translate(-50%, -50%) rotate(-35deg); font-size: 72px; font-weight: 800;
-        color: #0f172a; opacity: 0.06; text-align: center; line-height: 1.1; white-space: nowrap; pointer-events: none; z-index: -1; }
-</style></head><body>
-<div class="wm">${esc(BRAND.name.replace(/ Lending$/, '').toUpperCase())}<br>PROTOTYPE</div>
-${body}
-<script>window.onload = function () { setTimeout(function () { window.focus(); window.print(); }, 150); };<\/script>
-</body></html>`;
-  const w = window.open('', '_blank', 'width=820,height=980');
-  if (!w) {
-    alert('Please allow pop-ups for this site to print receipts.');
-    return;
-  }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-}
-
 /** Official receipt for a payment. Look it up by transaction reference, or by receipt id. */
 export function ReceiptModal({ refNo, paymentId, loanId, onClose }) {
   const { state, loanInfo, split, customerName } = useStore();
@@ -345,30 +311,33 @@ export function ReceiptModal({ refNo, paymentId, loanId, onClose }) {
     ? new Date(rec.at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : fmtDate(rec.date);
   const print = () =>
-    printDocument(`${BRAND.name.replace(/ Lending$/, '')} LMS Document`, [
-      ['h1', BRAND.name.toUpperCase()],
-      ['sub', 'Official Electronic Payment Receipt'],
-      ['line', '', pay?.id || pen.id],
-      ['line', 'Date & Time', when],
-      ['line', 'Payment Method', rec.method.toUpperCase()],
-      ['line', 'Customer Name', customerName(loan.customerId)],
-      ['line', 'Transaction Reference', rec.ref || '—'],
-      ['line', 'Loan Account Number', loan.id],
-      ['line', 'Recorded By', rec.by],
-      ['line', '', 'Payment Allocation'],
-      ['line', 'Principal Repayment', money(parts.principal)],
-      ['line', 'Interest Component', money(parts.interest)],
-      ['line', 'Fees / Charges', money(fees)],
-      ['line', 'Total Amount Credited', money(totalCredited)],
-      ['line', 'Remaining Balance', money(loanInfo[loan.id].balance)],
-      ['line', '', `Thank you for your payment to ${BRAND.name}. Please keep this receipt as proof of payment.`],
-    ]);
+    printHtml(
+      docTitle(),
+      receiptHead('Official Electronic Payment Receipt', pay?.id || pen.id) +
+        facts([
+          ['Date & Time', when],
+          ['Payment Method', rec.method.toUpperCase()],
+          ['Customer Name', customerName(loan.customerId)],
+          ['Transaction Reference', rec.ref || '—'],
+          ['Loan Account Number', loan.id],
+          ['Recorded By', rec.by],
+        ]) +
+        `<div class="box"><b>Payment Allocation</b>
+          <div class="row"><span>Principal Repayment</span><span>${money(parts.principal)}</span></div>
+          <div class="row"><span>Interest Component</span><span>${money(parts.interest)}</span></div>
+          <div class="row"><span>Fees / Charges</span><span>${money(fees)}</span></div>
+          <div class="row total"><span>Total Amount Credited</span><span>${money(totalCredited)}</span></div>
+        </div>` +
+        facts([['Remaining Balance', money(loanInfo[loan.id].balance)]]) +
+        `<p class="center muted" style="margin-top:24px">Thank you for your payment to ${BRAND.legal}. Please keep this receipt as proof of payment.</p>`
+    );
 
   return (
     <Modal title="Official Payment Receipt" onClose={onClose}>
       <div className="receipt-paper">
         <div className="receipt-top">
-          <h3>{BRAND.name.toUpperCase()}</h3>
+          <Logo className="receipt-logo" />
+          <h3>{BRAND.legal.toUpperCase()}</h3>
           <p>Official Electronic Payment Receipt</p>
           <span className="receipt-no">{pay?.id || pen.id}</span>
         </div>
@@ -388,7 +357,7 @@ export function ReceiptModal({ refNo, paymentId, loanId, onClose }) {
           <div className="line total"><span>Total amount credited</span><b>{money(totalCredited)}</b></div>
         </div>
         <div className="receipt-balance"><span>Remaining loan balance</span><b>{money(loanInfo[loan.id].balance)}</b></div>
-        <p className="receipt-thanks">Thank you for your payment to {BRAND.name}. Please keep this receipt as proof of payment.</p>
+        <p className="receipt-thanks">Thank you for your payment to {BRAND.legal}. Please keep this receipt as proof of payment.</p>
       </div>
       <div className="modal-foot spread">
         <button className="btn dark" onClick={print}><Icon name="file" size={16} /> Print Receipt</button>
