@@ -9,6 +9,9 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const online = Boolean(url && anonKey);
 export const supabase = online ? createClient(url, anonKey) : null;
 
+// False until the sms_outbox table exists (run supabase/patch-002-sms.sql).
+export let smsTableReady = true;
+
 /** Reads every table and returns data shaped like the app's state. */
 export async function loadAll() {
   const out = {};
@@ -16,8 +19,16 @@ export async function loadAll() {
     let q = supabase.from(table).select('*');
     q = key === 'audit' || key === 'sms' ? q.order('at', { ascending: false }).limit(500) : q.order('id');
     const { data, error } = await q;
+    if (error && key === 'sms') {
+      // SMS table not created yet (patch-002-sms.sql not run) – the rest of the app still works.
+      console.warn('sms_outbox not available:', error.message);
+      out.sms = [];
+      smsTableReady = false;
+      continue;
+    }
     if (error) throw new Error(`${table}: ${error.message}`);
     out[key] = data.map(fromRow);
+    if (key === 'sms') smsTableReady = true;
   }
   const rules = await supabase.from('notification_rules').select('*');
   if (rules.error) throw new Error(`notification_rules: ${rules.error.message}`);
@@ -42,6 +53,7 @@ export async function syncDiff(prev, next) {
     const a = prev[key] || [];
     const b = next[key] || [];
     if (a === b) continue;
+    if (key === 'sms' && !smsTableReady) continue; // nothing to save to yet
     const before = new Map(a.map((r) => [r.id, JSON.stringify(r)]));
     const changed = b.filter((r) => before.get(r.id) !== JSON.stringify(r));
     if (changed.length) {
@@ -82,6 +94,7 @@ export async function syncDiff(prev, next) {
  * Returns [{id, status, provider, providerRef, error, sentAt}].
  */
 export async function sendSms(ids) {
+  if (!smsTableReady) throw new Error('SMS is not set up yet – run supabase/patch-002-sms.sql and deploy the send-sms function');
   const { data, error } = await supabase.functions.invoke('send-sms', { body: { ids } });
   if (error) throw new Error(error.message || 'SMS function not reachable');
   if (data?.error) throw new Error(data.error);
