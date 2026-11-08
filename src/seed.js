@@ -136,7 +136,14 @@ export function makeSeed() {
     p.id = ids.receipt(i + 1);
     p.ref = `TXN-${100000 + ((i + 1) * 74923) % 900000}`;
     p.at = `${p.date}T${String(8 + (i % 9)).padStart(2, '0')}:${String((i * 17) % 60).padStart(2, '0')}:00`;
+    p.verified = i < payments.length - 2; // the two newest are still waiting for reconciliation
   });
+
+  // Deposits seen on the bank / mobile money statement that nobody has matched to a loan yet.
+  const statement = [
+    { id: 'STM-001', channel: 'Mobile Money', ref: 'MP261104.1532.K44817', amount: 2500, date: addDays(today, -4), narration: 'Deposit from 0977 *** 412' },
+    { id: 'STM-002', channel: 'Bank Transfer', ref: 'FT26310KZ9Q1', amount: 4500, date: addDays(today, -2), narration: 'EFT credit – "LOAN REPAYMENT"' },
+  ];
 
   const at = (d, t) => `${addDays(today, -d)}T${t}:00`;
   const audit = [
@@ -178,5 +185,5 @@ export function makeSeed() {
     by: ROLES.finance.user,
   })).filter((c) => c.loanId);
 
-  return { role: 'admin', customers, applications, loans, payments, audit, tickets, collections, penalties: [] };
+  return { role: 'admin', customers, applications, loans, payments, audit, tickets, collections, penalties: [], statement };
 }
