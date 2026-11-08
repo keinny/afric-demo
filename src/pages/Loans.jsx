@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { PAY_METHODS, can } from '../config';
-import { fmtDate, isoToday, money, product } from '../finance';
+import { allocate, fmtDate, isoToday, money, penaltyOwed, product } from '../finance';
 import { useStore } from '../store';
 import { Badge, Card, Empty, Field, Modal } from '../ui';
 
@@ -172,60 +172,116 @@ export function Ledger({ loan }) {
   );
 }
 
-export function PaymentForm({ loanId, onClose }) {
+const METHOD_LABEL = {
+  'Mobile Money': 'Mobile Money (Airtel / MTN / Zamtel)',
+  'Bank Transfer': 'Bank Transfer / EFT',
+  Cash: 'Cash at branch',
+};
+const newRef = () => `TXN-${Math.floor(100000 + Math.random() * 900000)}`;
+
+/** Payment form body: allocates penalty first, then interest, then principal. */
+export function PaymentBody({ loanId, presetAmount, lockLoan, onDone, onCancel }) {
   const { state, dispatch, loanInfo, customerName } = useStore();
   const openLoans = state.loans.filter((l) => loanInfo[l.id].status !== 'Settled');
   const [lid, setLid] = useState(loanId || openLoans[0]?.id);
   const info = loanInfo[lid];
-  const suggested = info ? info.overdueAmt || info.nextDue?.remaining || info.balance : 0;
-  const [amount, setAmount] = useState(suggested.toFixed(2));
+  const loan = state.loans.find((l) => l.id === lid);
+  const pen = info ? penaltyOwed(lid, info, state.penalties) : 0;
+  const instalment = info ? info.overdueAmt || info.nextDue?.remaining || info.balance : 0;
+  const maxPay = info ? info.balance + pen : 0;
+  const [amount, setAmount] = useState(String(presetAmount ?? (instalment + pen).toFixed(2)));
   const [method, setMethod] = useState(PAY_METHODS[0]);
   const [date, setDate] = useState(isoToday());
-  const ok = info && +amount > 0 && +amount <= info.balance + 0.001;
+  const [ref, setRef] = useState(newRef);
+  const [note, setNote] = useState('Customer monthly repayment');
+  const amt = +amount || 0;
+  const ok = info && amt > 0 && amt <= maxPay + 0.001 && ref.trim();
+
+  if (!openLoans.length) return <Empty>No open loans to pay.</Empty>;
+
+  // live allocation preview
+  const toPenalty = Math.min(amt, pen);
+  const toLoan = Math.max(0, Math.round((amt - toPenalty) * 100) / 100);
+  const preview = toLoan > 0 ? allocate(loan, [...state.payments, { id: '_preview', loanId: lid, amount: toLoan, date: '9999-12-31' }])._preview : { interest: 0, principal: 0 };
 
   const changeLoan = (v) => {
     setLid(v);
     const n = loanInfo[v];
-    setAmount((n.overdueAmt || n.nextDue?.remaining || n.balance).toFixed(2));
+    const p = penaltyOwed(v, n, state.penalties);
+    setAmount(((n.overdueAmt || n.nextDue?.remaining || n.balance) + p).toFixed(2));
   };
 
-  if (!openLoans.length) return <Modal title="Record payment" onClose={onClose}><Empty>No open loans.</Empty></Modal>;
+  const submit = (e) => {
+    e.preventDefault();
+    if (!ok) return;
+    if (toPenalty > 0) dispatch({ type: 'penalty', loanId: lid, amount: toPenalty, method, date, ref });
+    if (toLoan > 0) dispatch({ type: 'payment', loanId: lid, amount: toLoan, method, date, ref, note });
+    onDone?.({ amount: amt, toPenalty, toLoan, method, ref });
+  };
 
   return (
-    <Modal title="Record payment" onClose={onClose}>
-      <form
-        className="form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!ok) return;
-          dispatch({ type: 'payment', loanId: lid, amount: +amount, method, date });
-          onClose();
-        }}
-      >
-        <Field label="Loan account">
-          <select value={lid} onChange={(e) => changeLoan(e.target.value)} disabled={!!loanId}>
-            {openLoans.map((l) => <option key={l.id} value={l.id}>{l.id} – {customerName(l.customerId)}</option>)}
-          </select>
-        </Field>
-        <p className="muted small">Balance {money(info.balance)} · Arrears {money(info.overdueAmt)}</p>
-        <div className="row">
-          <Field label="Amount">
-            <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={ok ? '' : 'invalid'} />
+    <form className="form pay-form" onSubmit={submit}>
+      <Field label="Loan account *">
+        <select value={lid} onChange={(e) => changeLoan(e.target.value)} disabled={lockLoan}>
+          {openLoans.map((l) => (
+            <option key={l.id} value={l.id}>{l.id} — {customerName(l.customerId)} ({money(loanInfo[l.id].balance)} balance)</option>
+          ))}
+        </select>
+      </Field>
+
+      <div className="pay-summary">
+        <div><span>Borrower</span><strong>{customerName(loan.customerId)}</strong></div>
+        <div><span>Current balance</span><strong className="red-text">{money(info.balance)}</strong></div>
+        <div><span>{info.overdueAmt ? 'Overdue now' : 'Next instalment'}</span><strong className={info.overdueAmt ? 'red-text' : 'green-text'}>{money(instalment)}</strong></div>
+        {pen > 0 && <div><span>Late penalty owed</span><strong className="red-text">{money(pen)}</strong></div>}
+      </div>
+
+      <div className="row">
+        <div>
+          <Field label={`Payment amount (${'K'}) *`}>
+            <input className={`big ${ok || !amount ? '' : 'invalid'}`} type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </Field>
-          <Field label="Date">
-            <input type="date" value={date} max={isoToday()} onChange={(e) => setDate(e.target.value)} />
-          </Field>
+          <div className="quick">
+            <button type="button" onClick={() => setAmount((instalment + pen).toFixed(2))}>Set instalment{pen ? ' + penalty' : ''} ({money(instalment + pen)})</button>
+            <button type="button" onClick={() => setAmount(maxPay.toFixed(2))}>Set full balance ({money(maxPay)})</button>
+          </div>
         </div>
-        <Field label="Method">
+        <Field label="Payment method *">
           <select value={method} onChange={(e) => setMethod(e.target.value)}>
-            {PAY_METHODS.map((m) => <option key={m}>{m}</option>)}
+            {PAY_METHODS.map((m) => <option key={m} value={m}>{METHOD_LABEL[m] || m}</option>)}
           </select>
         </Field>
-        <div className="actions">
-          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
-          <button className="btn" disabled={!ok}>Save payment</button>
+      </div>
+
+      <div className="row">
+        <Field label="Transaction reference *"><input value={ref} onChange={(e) => setRef(e.target.value)} className="mono" /></Field>
+        <Field label="Payment date"><input type="date" value={date} max={isoToday()} onChange={(e) => setDate(e.target.value)} /></Field>
+      </div>
+      <Field label="Remarks"><input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+
+      <div className="alloc">
+        <div className="alloc-title">How this payment will be split</div>
+        <div className="alloc-rows">
+          <div><span>1. Late penalty</span><b>{money(toPenalty)}</b></div>
+          <div><span>2. Interest</span><b>{money(preview.interest)}</b></div>
+          <div><span>3. Principal</span><b>{money(preview.principal)}</b></div>
         </div>
-      </form>
+        <p>Payments always clear any late penalty first, then interest that has built up, and only then reduce the principal balance.</p>
+      </div>
+      {amt > maxPay + 0.001 && <p className="red-text small">Amount is more than the full balance owed ({money(maxPay)}).</p>}
+
+      <div className="modal-foot">
+        <button type="button" className="btn ghost" onClick={onCancel}>Cancel</button>
+        <button className="btn" disabled={!ok}>Record & Allocate Payment</button>
+      </div>
+    </form>
+  );
+}
+
+export function PaymentForm({ loanId, onClose }) {
+  return (
+    <Modal title="Record Customer Loan Payment" sub="Post a repayment to the ledger and update the instalment schedule" onClose={onClose}>
+      <PaymentBody loanId={loanId} lockLoan={!!loanId} onDone={onClose} onCancel={onClose} />
     </Modal>
   );
 }

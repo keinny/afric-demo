@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { COLLECTION_ACTIONS, LATE_PENALTY_PCT, PAY_METHODS, PRODUCTS, can } from '../config';
-import { addDays, addMonths, buildSchedule, fmtDate, isoToday, money, product } from '../finance';
+import { COLLECTION_ACTIONS, LATE_PENALTY_PCT, PRODUCTS, can } from '../config';
+import { addDays, addMonths, buildSchedule, fmtDate, isoToday, money, penaltyOwed, product } from '../finance';
 import { useStore } from '../store';
 import { Badge, Empty, Field, Icon, Modal, downloadCsv } from '../ui';
-import { LoanDetail, PaymentForm } from './Loans';
+import { LoanDetail, PaymentBody, PaymentForm } from './Loans';
 
 const r2 = (n) => Math.round(n * 100) / 100;
 const penaltyFor = (remaining) => r2((remaining * LATE_PENALTY_PCT) / 100);
@@ -101,8 +101,13 @@ export default function Emi({ go, sub }) {
                           <td>{fmtDate(r.due)}</td>
                           <td><span className="late">{r.days} days late</span></td>
                           <td className="num red-text strong">{money(r.remaining)}</td>
-                          <td className="num muted">+{money(penaltyFor(r.remaining))}</td>
-                          <td className="muted small">{last ? `${last.action} · ${fmtDate(last.at.slice(0, 10))}` : 'None yet'}</td>
+                          <td className="num muted">
+                            {(() => {
+                              const owed = Math.min(penaltyFor(r.remaining), penaltyOwed(r.loan.id, loanInfo[r.loan.id], state.penalties));
+                              return owed > 0 ? `+${money(owed)}` : <span className="green-text">Paid</span>;
+                            })()}
+                          </td>
+                          <td className="muted small wrap-sm">{last ? <>{last.action}<br />{fmtDate(last.at.slice(0, 10))}</> : 'None yet'}</td>
                           <td className="right">
                             <div className="stack-btns">
                               <button className="btn small" onClick={() => setCollect(r)}>Collect</button>
@@ -174,24 +179,23 @@ export default function Emi({ go, sub }) {
 
 /* ---------------- Collect modal ---------------- */
 function CollectModal({ row, onClose }) {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, loanInfo } = useStore();
   const canPay = can(state.role, 'payment');
   const isLate = row.state === 'Overdue';
-  const penalty = isLate ? penaltyFor(row.remaining) : 0;
+  const penalty = isLate ? penaltyOwed(row.loan.id, loanInfo[row.loan.id], state.penalties) : 0;
   const [mode, setMode] = useState(canPay ? 'pay' : 'log');
-  const [amount, setAmount] = useState(row.remaining.toFixed(2));
-  const [withPenalty, setWithPenalty] = useState(isLate);
-  const [method, setMethod] = useState(PAY_METHODS[0]);
   const [action, setAction] = useState('Phone call');
   const [note, setNote] = useState('');
   const [promise, setPromise] = useState(addDays(isoToday(), 3));
   const cust = state.customers.find((c) => c.id === row.loan.customerId);
-  const ok = +amount > 0;
 
-  const pay = () => {
-    dispatch({ type: 'payment', loanId: row.loan.id, amount: +amount, method });
-    if (withPenalty && penalty) dispatch({ type: 'penalty', loanId: row.loan.id, amount: penalty, method });
-    dispatch({ type: 'collectLog', loanId: row.loan.id, action: 'Payment collected', note: `${money(+amount)}${withPenalty && penalty ? ` + ${money(penalty)} penalty` : ''} via ${method}` });
+  const paid = ({ amount, toPenalty, method, ref }) => {
+    dispatch({
+      type: 'collectLog',
+      loanId: row.loan.id,
+      action: 'Payment collected',
+      note: `${money(amount)} via ${method} (${ref})${toPenalty ? `, incl. ${money(toPenalty)} penalty` : ''}`,
+    });
     onClose();
   };
   const log = () => {
@@ -200,11 +204,10 @@ function CollectModal({ row, onClose }) {
   };
 
   return (
-    <Modal title={`Collect · ${row.loan.id}`} onClose={onClose}>
+    <Modal title={`Collect · ${row.loan.id}`} sub={`${row.customer} · ${cust?.phone || ''}`} onClose={onClose}>
       <div className="collect-summary">
-        <div><span>Borrower</span><strong>{row.customer}</strong><em>{cust?.phone}</em></div>
         <div><span>Instalment #{row.no}</span><strong>{money(row.remaining)}</strong><em>{isLate ? `${row.days} days late` : `Due ${fmtDate(row.due)}`}</em></div>
-        {isLate && <div><span>Late penalty ({LATE_PENALTY_PCT}%)</span><strong className="red-text">+{money(penalty)}</strong><em>on amount overdue</em></div>}
+        {isLate && <div><span>Late penalty ({LATE_PENALTY_PCT}%)</span><strong className="red-text">+{money(penalty)}</strong><em>still owed</em></div>}
       </div>
 
       <div className="seg">
@@ -214,25 +217,7 @@ function CollectModal({ row, onClose }) {
       {!canPay && <p className="muted small">Only the Finance Officer can record payments. You can still log calls, visits and promises.</p>}
 
       {mode === 'pay' ? (
-        <div className="form">
-          <div className="row">
-            <Field label="Amount received"><input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={ok ? '' : 'invalid'} /></Field>
-            <Field label="Method">
-              <select value={method} onChange={(e) => setMethod(e.target.value)}>{PAY_METHODS.map((m) => <option key={m}>{m}</option>)}</select>
-            </Field>
-          </div>
-          {isLate && (
-            <label className="check-line">
-              <input type="checkbox" checked={withPenalty} onChange={(e) => setWithPenalty(e.target.checked)} />
-              Also collect the late penalty of {money(penalty)}
-            </label>
-          )}
-          <p className="muted">Total to receive: <strong>{money((+amount || 0) + (withPenalty ? penalty : 0))}</strong></p>
-          <div className="actions">
-            <button className="btn ghost" onClick={onClose}>Cancel</button>
-            <button className="btn" disabled={!ok} onClick={pay}>Confirm collection</button>
-          </div>
-        </div>
+        <PaymentBody loanId={row.loan.id} lockLoan presetAmount={(row.remaining + penalty).toFixed(2)} onDone={paid} onCancel={onClose} />
       ) : (
         <div className="form">
           <Field label="Activity">

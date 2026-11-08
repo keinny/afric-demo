@@ -99,7 +99,16 @@ function reducer(state, a) {
     }
 
     case 'payment': {
-      const pay = { id: ids.receipt(nextNum(state.payments)), loanId: a.loanId, amount: +a.amount, method: a.method, date: a.date || isoToday(), by: ROLES[state.role].user };
+      const pay = {
+        id: ids.receipt(nextNum(state.payments)),
+        loanId: a.loanId,
+        amount: +a.amount,
+        method: a.method,
+        date: a.date || isoToday(),
+        ref: a.ref || '',
+        note: a.note || '',
+        by: ROLES[state.role].user,
+      };
       const loan = state.loans.find((l) => l.id === a.loanId);
       return withLog(
         { ...state, payments: [...state.payments, pay] },
@@ -126,7 +135,7 @@ function reducer(state, a) {
     }
 
     case 'penalty': {
-      const pen = { id: `PEN-${String(state.penalties.length + 1).padStart(3, '0')}`, loanId: a.loanId, amount: +a.amount, method: a.method, date: a.date || isoToday(), by: ROLES[state.role].user };
+      const pen = { id: `PEN-${String(state.penalties.length + 1).padStart(3, '0')}`, loanId: a.loanId, amount: +a.amount, method: a.method, date: a.date || isoToday(), ref: a.ref || '', by: ROLES[state.role].user };
       return withLog({ ...state, penalties: [...state.penalties, pen] }, `Collected late penalty of ${money(pen.amount)} on ${a.loanId} (${pen.id}).`);
     }
 
