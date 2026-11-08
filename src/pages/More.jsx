@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BRAND, CHECKLIST, PRODUCTS, ROLES, can } from '../config';
 import { addDays, estimateInstallment, fmtDate, money, product } from '../finance';
 import { useStore } from '../store';
-import { Badge, Card, Empty, Field, Modal, Stat } from '../ui';
+import { Badge, Card, Empty, Field, Modal, Stat, downloadCsv } from '../ui';
 import { LoanDetail } from './Loans';
 
 /* ---------- Loan Products ---------- */
@@ -241,15 +241,6 @@ export function Support() {
 }
 
 /* ---------- Analytics & Reports ---------- */
-function downloadCsv(filename, rows) {
-  const csv = rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
 export function Analytics() {
   const { state, loanInfo, customerName } = useStore();
   const infos = state.loans.map((l) => ({ l, i: loanInfo[l.id] }));

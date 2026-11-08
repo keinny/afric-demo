@@ -1,8 +1,8 @@
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { APP_STATUSES, PRODUCTS } from '../config';
+import { APP_STATUSES, BRAND, PRODUCTS } from '../config';
 import { addDays, addMonths, fmtDate, money, moneyShort, monthKey, monthLabel, product } from '../finance';
 import { useStore } from '../store';
-import { Badge, Card, Empty, Stat } from '../ui';
+import { Badge, Card, Empty, Kpi } from '../ui';
 
 const STATUS_COLORS = { Submitted: '#3b82f6', 'In Review': '#f59e0b', Approved: '#14b8a6', Disbursed: '#16a34a', Rejected: '#ef4444' };
 const tip = { formatter: (v) => money(v), contentStyle: { borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 } };
@@ -19,6 +19,10 @@ export default function Dashboard({ go }) {
   const in30 = addDays(today, 30);
   const upcoming = infos.flatMap((i) => i.rows).filter((r) => r.remaining > 0 && r.due >= today && r.due <= in30);
   const newCustomers = customers.filter((c) => c.joined >= addDays(today, -45)).length;
+  const last30 = customers.filter((c) => c.joined >= addDays(today, -30)).length;
+  const prev30 = customers.filter((c) => c.joined >= addDays(today, -60) && c.joined < addDays(today, -30)).length;
+  const custTrend = { up: last30 >= prev30, pct: prev30 ? Math.round(((last30 - prev30) / prev30) * 100) : last30 * 100 };
+  const overdueEmis = infos.reduce((s, i) => s + i.overdueCount, 0);
 
   const disbursed = loans.reduce((s, l) => s + l.principal, 0);
   const outstanding = open.reduce((s, i) => s + i.principalOutstanding, 0);
@@ -43,16 +47,30 @@ export default function Dashboard({ go }) {
 
   return (
     <div className="page">
-      <div className="stats">
-        <Stat label="Customers" value={customers.length} sub={`${newCustomers} joined in last 45 days`} />
-        <Stat label="Applications" value={applications.length} sub={`${pending.length} awaiting review`} />
-        <Stat label="Approved" value={approved.length} sub="Ready to disburse" tone="teal" />
-        <Stat label="Active loans" value={open.length} sub={`${overdue.length} overdue`} />
-        <Stat label="Disbursed" value={money(disbursed)} sub="Total principal lent" />
-        <Stat label="Outstanding principal" value={money(outstanding)} sub="Still owed on open loans" />
-        <Stat label="Collected" value={money(collected)} sub="All payments received" tone="green" />
-        <Stat label="Due in 30 days" value={upcoming.length} sub={money(upcoming.reduce((s, r) => s + r.remaining, 0))} />
-        <Stat label="Overdue" value={money(overdue.reduce((s, i) => s + i.overdueAmt, 0))} sub={`${overdue.length} accounts in arrears`} tone="red" />
+      <section className="hero">
+        <div>
+          <div className="hero-tag"><span>LIVE DEMO</span> {BRAND.name}</div>
+          <h2>Lending Operations at a Glance</h2>
+          <p>Every figure below is worked out from the live records, so it changes the moment a loan is captured, approved, paid out or repaid.</p>
+        </div>
+        <div className="hero-actions">
+          <button className="btn" onClick={() => go('applications')}>Process Applications ({pending.length})</button>
+          <button className="btn navy" onClick={() => go('repayments')}>Repayments Ledger</button>
+        </div>
+      </section>
+
+      <div className="kpis">
+        <Kpi label="Total customers" value={customers.length} sub="Registered borrowers" icon="users" tone="slate" onClick={() => go('customers')} />
+        <Kpi label="New customers" value={newCustomers} sub="Joined in last 45 days" icon="userPlus" tone="teal" trend={custTrend} />
+        <Kpi label="Applications" value={applications.length} sub={`${pending.length} awaiting review`} icon="file" tone="blue" onClick={() => go('applications')} />
+        <Kpi label="Pending apps" value={pending.length} sub="In verification queue" icon="clock" tone="amber" onClick={() => go('verification')} />
+        <Kpi label="Approved apps" value={approved.length} sub="Ready for payout" icon="check" tone="green" />
+        <Kpi label="Active loans" value={open.length} sub={`${overdue.length} currently overdue`} icon="bank" tone="purple" onClick={() => go('loans')} />
+        <Kpi label="Disbursed principal" value={money(disbursed)} sub="Total capital lent out" icon="coins" tone="cyan" />
+        <Kpi label="Outstanding principal" value={money(outstanding)} sub="Still owed on open loans" icon="wallet" tone="slate" />
+        <Kpi label="Payments collected" value={money(collected)} sub="Cash received to date" icon="card" tone="green" onClick={() => go('repayments')} />
+        <Kpi label="Upcoming EMIs" value={upcoming.length} sub={`Due in next 30 days · ${money(upcoming.reduce((s, r) => s + r.remaining, 0))}`} icon="calendar" tone="blue" onClick={() => go('emi')} />
+        <Kpi label="Overdue EMIs" value={overdueEmis} sub={`Needs follow-up · ${money(overdue.reduce((s, i) => s + i.overdueAmt, 0))}`} icon="alert" tone="red" onClick={() => go('emi')} />
       </div>
 
       <div className="grid-2">
