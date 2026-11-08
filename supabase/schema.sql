@@ -182,13 +182,20 @@ create index if not exists audit_log_at_idx          on public.audit_log(at desc
 -- ---------------------------------------------------------------------
 --  Role helpers used by the security policies
 -- ---------------------------------------------------------------------
--- Role of the signed-in user (null if they are not an active staff member)
+-- Role of the signed-in user: only when their Auth email is CONFIRMED and matches
+-- an active staff record (null otherwise).
 create or replace function public.my_role()
-returns text language sql stable security definer set search_path = public as $$
-  select role_key from public.staff
-  where lower(email) = lower(auth.jwt() ->> 'email') and active
+returns text language sql stable security definer set search_path = public, auth as $$
+  select s.role_key
+  from public.staff s
+  join auth.users u on lower(u.email) = lower(s.email)
+  where u.id = auth.uid()
+    and u.email_confirmed_at is not null
+    and s.active
   limit 1
 $$;
+revoke all on function public.my_role() from public;
+grant execute on function public.my_role() to authenticated;
 
 create or replace function public.is_staff()
 returns boolean language sql stable as $$
