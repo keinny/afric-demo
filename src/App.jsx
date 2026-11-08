@@ -7,7 +7,8 @@ import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
 import Loans from './pages/Loans';
 import Repayments from './pages/Repayments';
-import { Analytics, Emi, Employees, Notifications, Products, Settings, Support, Verification } from './pages/More';
+import Emi from './pages/Emi';
+import { Analytics, Employees, Notifications, Products, Settings, Support, Verification } from './pages/More';
 
 const PAGES = [
   { id: 'dashboard', label: 'Overview', icon: '▦', el: Dashboard },

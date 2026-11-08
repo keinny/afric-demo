@@ -1,11 +1,17 @@
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { APP_STATUSES, BRAND, PRODUCTS } from '../config';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { APP_STATUSES, BRAND, CHART, PRODUCTS } from '../config';
 import { addDays, addMonths, fmtDate, money, moneyShort, monthKey, monthLabel, product } from '../finance';
 import { useStore } from '../store';
 import { Badge, Card, Empty, Kpi } from '../ui';
 
-const STATUS_COLORS = { Submitted: '#3b82f6', 'In Review': '#f59e0b', Approved: '#14b8a6', Disbursed: '#16a34a', Rejected: '#ef4444' };
-const tip = { formatter: (v) => money(v), contentStyle: { borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 } };
+const STATUS_COLORS = { Submitted: CHART.light, 'In Review': CHART.mid, Approved: CHART.teal, Disbursed: CHART.navy, Rejected: CHART.grey };
+const PRODUCT_COLORS = [CHART.navy, CHART.teal, CHART.mid];
+const tip = {
+  formatter: (v) => money(v),
+  cursor: { fill: '#f1f5f9' },
+  contentStyle: { borderRadius: 10, border: `1px solid ${CHART.grid}`, fontSize: 12, boxShadow: '0 6px 16px #0f172a14' },
+};
+const axis = { fontSize: 12, tickLine: false, axisLine: false, stroke: CHART.axis };
 
 export default function Dashboard({ go }) {
   const { state, loanInfo, customerName, today } = useStore();
@@ -77,31 +83,35 @@ export default function Dashboard({ go }) {
         <Card title="Disbursements" sub="Principal paid out per month">
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={trend} margin={{ left: -10 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis tickFormatter={moneyShort} fontSize={12} tickLine={false} axisLine={false} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART.grid} />
+              <XAxis dataKey="month" {...axis} />
+              <YAxis tickFormatter={moneyShort} {...axis} />
               <Tooltip {...tip} />
-              <Bar dataKey="disbursed" name="Disbursed" fill="#0f766e" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="disbursed" name="Disbursed" radius={[8, 8, 0, 0]} maxBarSize={56}>
+                {trend.map((d, k) => (
+                  <Cell key={k} fill={k === trend.length - 1 ? CHART.teal : CHART.navy} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </Card>
         <Card title="Collections" sub="Expected instalments vs money received" action={<span className="pill">{recovery.toFixed(1)}% recovered</span>}>
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={trend} margin={{ left: -10 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis tickFormatter={moneyShort} fontSize={12} tickLine={false} axisLine={false} />
+            <BarChart data={trend} margin={{ left: -10 }} barGap={4}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART.grid} />
+              <XAxis dataKey="month" {...axis} />
+              <YAxis tickFormatter={moneyShort} {...axis} />
               <Tooltip {...tip} />
               <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-              <Line dataKey="expected" name="Expected" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 4" dot={false} />
-              <Line dataKey="collected" name="Collected" stroke="#16a34a" strokeWidth={2.5} dot={{ r: 3 }} />
-            </LineChart>
+              <Bar dataKey="expected" name="Expected" fill={CHART.pale} radius={[6, 6, 0, 0]} maxBarSize={26} />
+              <Bar dataKey="collected" name="Collected" fill={CHART.teal} radius={[6, 6, 0, 0]} maxBarSize={26} />
+            </BarChart>
           </ResponsiveContainer>
         </Card>
         <Card title="Applications by status" sub="Whole pipeline">
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
-              <Pie data={byStatus} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
+              <Pie data={byStatus} dataKey="value" nameKey="name" innerRadius={58} outerRadius={88} paddingAngle={3} cornerRadius={4} stroke="none">
                 {byStatus.map((d) => (
                   <Cell key={d.name} fill={STATUS_COLORS[d.name]} />
                 ))}
@@ -114,11 +124,15 @@ export default function Dashboard({ go }) {
         <Card title="Outstanding by product" sub="Principal still owed">
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={byProduct} layout="vertical" margin={{ left: 30 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-              <XAxis type="number" tickFormatter={moneyShort} fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis type="category" dataKey="name" fontSize={12} width={110} tickLine={false} axisLine={false} />
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={CHART.grid} />
+              <XAxis type="number" tickFormatter={moneyShort} {...axis} />
+              <YAxis type="category" dataKey="name" width={110} {...axis} />
               <Tooltip {...tip} />
-              <Bar dataKey="value" name="Outstanding" fill="#0ea5e9" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="value" name="Outstanding" radius={[0, 8, 8, 0]} maxBarSize={40}>
+                {byProduct.map((d, k) => (
+                  <Cell key={k} fill={PRODUCT_COLORS[k % PRODUCT_COLORS.length]} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </Card>

@@ -38,4 +38,21 @@ export const CHECKLIST = [
 
 export const PAY_METHODS = ['Mobile Money', 'Bank Transfer', 'Cash'];
 
+// Late penalty charged on an overdue instalment (% of the amount still due).
+export const LATE_PENALTY_PCT = 5;
+
+export const COLLECTION_ACTIONS = ['Phone call', 'SMS reminder', 'Field visit', 'Promise to pay', 'Payment collected'];
+
+// One palette for every chart, taken from the sidebar navy and brand teal.
+export const CHART = {
+  navy: '#0b1f24',
+  teal: '#0f766e',
+  mid: '#14b8a6',
+  light: '#5eead4',
+  pale: '#ccfbf1',
+  grey: '#cbd5e1',
+  axis: '#64748b',
+  grid: '#e2e8f0',
+};
+
 export const APP_STATUSES = ['Submitted', 'In Review', 'Approved', 'Disbursed', 'Rejected'];

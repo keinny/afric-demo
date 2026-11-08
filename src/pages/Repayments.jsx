@@ -183,6 +183,10 @@ function CashBook() {
       const l = state.loans.find((x) => x.id === p.loanId);
       return { date: p.date, ref: p.id, text: `Repayment from ${customerName(l.customerId)} (${l.id})`, channel: p.method, in: p.amount, out: 0 };
     }),
+    ...(state.penalties || []).map((p) => {
+      const l = state.loans.find((x) => x.id === p.loanId);
+      return { date: p.date, ref: p.id, text: `Late penalty from ${customerName(l.customerId)} (${l.id})`, channel: p.method, in: p.amount, out: 0 };
+    }),
   ].sort((a, b) => a.date.localeCompare(b.date) || b.out - a.out);
   let run = 0;
   const rows = entries.map((e) => ({ ...e, net: (run += e.in - e.out) })).reverse();
