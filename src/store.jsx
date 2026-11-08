@@ -1,0 +1,124 @@
+import { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
+import { ROLES } from './config';
+import { addMonths, buildSchedule, isoToday, money, product, summarize } from './finance';
+import { ids, makeSeed } from './seed';
+
+const KEY = 'afric-demo-v1';
+const Ctx = createContext(null);
+
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return makeSeed();
+}
+
+const nextNum = (list) => list.length + 1;
+const name = (state, customerId) => state.customers.find((c) => c.id === customerId)?.name || customerId;
+
+function withLog(state, text) {
+  const r = ROLES[state.role];
+  const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, at: new Date().toISOString(), user: r.user, role: r.label, text };
+  return { ...state, audit: [entry, ...state.audit].slice(0, 500) };
+}
+
+function reducer(state, a) {
+  switch (a.type) {
+    case 'role':
+      return withLog({ ...state, role: a.role }, `Switched to ${ROLES[a.role].label} view.`);
+
+    case 'reset':
+      return makeSeed();
+
+    case 'addCustomer': {
+      const c = { ...a.customer, id: ids.customer(nextNum(state.customers)), joined: isoToday() };
+      return withLog({ ...state, customers: [...state.customers, c] }, `Registered customer ${c.name} (${c.id}).`);
+    }
+
+    case 'addApplication': {
+      const app = {
+        ...a.app,
+        id: ids.app(nextNum(state.applications)),
+        status: 'Submitted',
+        createdAt: isoToday(),
+        checklist: Array(6).fill(false),
+        note: '',
+      };
+      return withLog(
+        { ...state, applications: [app, ...state.applications] },
+        `Captured ${product(app.productId).name} application ${app.id} for ${name(state, app.customerId)} (${money(app.amount)}).`
+      );
+    }
+
+    case 'check': {
+      const applications = state.applications.map((x) =>
+        x.id === a.id ? { ...x, checklist: x.checklist.map((v, i) => (i === a.index ? a.value : v)) } : x
+      );
+      return withLog({ ...state, applications }, `${a.value ? 'Ticked' : 'Unticked'} check ${a.index + 1} on ${a.id}.`);
+    }
+
+    case 'status': {
+      const applications = state.applications.map((x) => (x.id === a.id ? { ...x, status: a.status, note: a.note ?? x.note } : x));
+      const verb = { 'In Review': 'Started verification of', Approved: 'Approved', Rejected: 'Rejected' }[a.status] || 'Updated';
+      return withLog({ ...state, applications }, `${verb} application ${a.id}${a.note ? ` – ${a.note}` : ''}.`);
+    }
+
+    case 'disburse': {
+      const app = state.applications.find((x) => x.id === a.id);
+      const p = product(app.productId);
+      const disbursedOn = isoToday();
+      const loan = {
+        id: ids.loan(nextNum(state.loans)),
+        appId: app.id,
+        customerId: app.customerId,
+        productId: app.productId,
+        principal: app.amount,
+        ratePct: p.ratePct,
+        method: p.method,
+        months: app.months,
+        disbursedOn,
+        disburseMethod: a.method,
+        schedule: buildSchedule({ principal: app.amount, ratePct: p.ratePct, months: app.months, method: p.method, firstDue: addMonths(disbursedOn, 1) }),
+      };
+      const applications = state.applications.map((x) => (x.id === a.id ? { ...x, status: 'Disbursed' } : x));
+      return withLog(
+        { ...state, applications, loans: [...state.loans, loan] },
+        `Disbursed ${money(loan.principal)} to ${name(state, loan.customerId)} by ${a.method}; opened loan ${loan.id}.`
+      );
+    }
+
+    case 'payment': {
+      const pay = { id: ids.receipt(nextNum(state.payments)), loanId: a.loanId, amount: +a.amount, method: a.method, date: a.date || isoToday(), by: ROLES[state.role].user };
+      const loan = state.loans.find((l) => l.id === a.loanId);
+      return withLog(
+        { ...state, payments: [...state.payments, pay] },
+        `Recorded ${a.method} payment of ${money(pay.amount)} on ${loan.id} (${name(state, loan.customerId)}), receipt ${pay.id}.`
+      );
+    }
+
+    default:
+      return state;
+  }
+}
+
+export function StoreProvider({ children }) {
+  const [state, dispatch] = useReducer(reducer, undefined, load);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch {}
+  }, [state]);
+
+  const derived = useMemo(() => {
+    const today = isoToday();
+    const loanInfo = Object.fromEntries(state.loans.map((l) => [l.id, summarize(l, state.payments, today)]));
+    const customerName = (id) => name(state, id);
+    return { loanInfo, customerName, today };
+  }, [state]);
+
+  return <Ctx.Provider value={{ state, dispatch, ...derived }}>{children}</Ctx.Provider>;
+}
+
+export const useStore = () => useContext(Ctx);

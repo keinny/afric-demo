@@ -1,0 +1,123 @@
+import { BRAND, CHECKLIST, PAY_METHODS, ROLES } from './config';
+import { addDays, addMonths, buildSchedule, isoToday, product } from './finance';
+
+const pad = (n, w = 3) => String(n).padStart(w, '0');
+export const ids = {
+  customer: (n) => `CUS-${pad(n)}`,
+  app: (n) => `${BRAND.prefix}-APP-${pad(n)}`,
+  loan: (n) => `${BRAND.prefix}-LN-${pad(n)}`,
+  receipt: (n) => `RCP-${pad(n, 4)}`,
+};
+
+const CUSTOMERS = [
+  ['Chipo Mumba', 'Lusaka', 'Ministry of Health', 'Salaried'],
+  ['Daniel Kabwe', 'Ndola', 'Kabwe Hardware', 'Business'],
+  ['Esther Phiri', 'Lusaka', 'Zed Schools Trust', 'Salaried'],
+  ['Moses Banda', 'Kitwe', 'Copperbelt Mining Services', 'Salaried'],
+  ['Naomi Zulu', 'Lusaka', 'Naomi Catering', 'Business'],
+  ['Brian Mwale', 'Kabwe', 'Mwale Farms', 'Business'],
+  ['Alice Chanda', 'Livingstone', 'Falls Lodge', 'Salaried'],
+  ['Samuel Ngoma', 'Chipata', 'Eastern Agro Supplies', 'Business'],
+  ['Ruth Musonda', 'Lusaka', 'City Clinic', 'Salaried'],
+  ['Victor Simukonda', 'Solwezi', 'North-West Transport', 'Business'],
+];
+
+// [customer, product, amount, months, status, daysAgoCreated, missedInstallments]
+const APPS = [
+  [0, 'SAL', 15000, 6, 'Disbursed', 200, 0],
+  [1, 'SME', 60000, 12, 'Disbursed', 185, 0],
+  [2, 'SAL', 8000, 4, 'Disbursed', 170, 0],
+  [3, 'SAL', 20000, 6, 'Disbursed', 150, 2],
+  [4, 'SME', 25000, 9, 'Disbursed', 130, 1],
+  [5, 'AST', 120000, 18, 'Disbursed', 110, 0],
+  [6, 'SAL', 10000, 5, 'Disbursed', 80, 0],
+  [7, 'SME', 40000, 10, 'Disbursed', 45, 0],
+  [8, 'SAL', 6000, 3, 'Approved', 6, 0],
+  [9, 'AST', 90000, 24, 'In Review', 4, 0],
+  [2, 'SAL', 5000, 3, 'Submitted', 2, 0],
+  [6, 'SME', 30000, 12, 'Submitted', 1, 0],
+  [3, 'SAL', 12000, 6, 'Rejected', 60, 0],
+];
+
+export function makeSeed() {
+  const today = isoToday();
+  const customers = CUSTOMERS.map(([name, town, employer, type], i) => ({
+    id: ids.customer(i + 1),
+    name,
+    phone: `+260 97${pad(1000000 + i * 734521, 7).slice(-7)}`,
+    nrc: `${pad(100000 + i * 37719, 6)}/${10 + i}/1`,
+    town,
+    employer,
+    type,
+    joined: addDays(today, -(i < 8 ? 260 - i * 25 : 30 - (i - 8) * 20)),
+  }));
+
+  const applications = [];
+  const loans = [];
+  const payments = [];
+  let receipt = 1;
+
+  APPS.forEach(([ci, pid, amount, months, status, ago, missed], i) => {
+    const created = addDays(today, -ago);
+    const done = ['Approved', 'Disbursed', 'Rejected'].includes(status);
+    const app = {
+      id: ids.app(i + 1),
+      customerId: customers[ci].id,
+      productId: pid,
+      amount,
+      months,
+      purpose: pid === 'SAL' ? 'Personal / household' : pid === 'SME' ? 'Stock and working capital' : 'Vehicle / equipment purchase',
+      status,
+      createdAt: created,
+      checklist: CHECKLIST.map((_, k) => done || (status === 'In Review' && k < 4)),
+      note: status === 'Rejected' ? 'Existing arrears on another loan.' : '',
+    };
+    applications.push(app);
+
+    if (status === 'Disbursed') {
+      const p = product(pid);
+      const disbursedOn = addDays(created, 3);
+      const loan = {
+        id: ids.loan(loans.length + 1),
+        appId: app.id,
+        customerId: app.customerId,
+        productId: pid,
+        principal: amount,
+        ratePct: p.ratePct,
+        method: p.method,
+        months,
+        disbursedOn,
+        disburseMethod: i % 2 ? 'Bank Transfer' : 'Mobile Money',
+        schedule: buildSchedule({ principal: amount, ratePct: p.ratePct, months, method: p.method, firstDue: addMonths(disbursedOn, 1) }),
+      };
+      loans.push(loan);
+      const pastDue = loan.schedule.filter((r) => r.due < today);
+      pastDue.forEach((r, k) => {
+        if (k >= pastDue.length - missed) return;
+        payments.push({
+          id: ids.receipt(receipt++),
+          loanId: loan.id,
+          amount: r.total,
+          method: PAY_METHODS[(i + k) % 2],
+          date: addDays(r.due, -((i + k) % 3)),
+          by: ROLES.finance.user,
+        });
+      });
+    }
+  });
+
+  payments.sort((a, b) => a.date.localeCompare(b.date));
+  payments.forEach((p, i) => (p.id = ids.receipt(i + 1)));
+
+  const at = (d, t) => `${addDays(today, -d)}T${t}:00`;
+  const audit = [
+    { at: at(0, '08:05'), who: 'admin', text: 'Logged in to the demo environment.' },
+    { at: at(1, '09:20'), who: 'officer', text: `Captured application ${ids.app(12)} for ${customers[6].name}.` },
+    { at: at(2, '10:40'), who: 'officer', text: `Captured application ${ids.app(11)} for ${customers[2].name}.` },
+    { at: at(3, '14:10'), who: 'verifier', text: `Started verification of ${ids.app(10)}; 4 of 6 checks complete.` },
+    { at: at(5, '11:30'), who: 'manager', text: `Approved ${ids.app(9)} for ${customers[8].name}.` },
+    { at: at(6, '15:45'), who: 'finance', text: 'Posted month-end collections to the ledger.' },
+  ].map((a, i) => ({ id: `seed-${i}`, at: a.at, user: ROLES[a.who].user, role: ROLES[a.who].label, text: a.text }));
+
+  return { role: 'admin', customers, applications, loans, payments, audit };
+}
