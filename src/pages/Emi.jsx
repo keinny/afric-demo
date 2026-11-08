@@ -18,7 +18,7 @@ export default function Emi({ go, sub }) {
   const { state, loanInfo, customerName, today } = useStore();
   const tab = ['overdue', 'upcoming', 'collections', 'calculator'].includes(sub) ? sub : 'overdue';
   const [collect, setCollect] = useState(null);
-  const [account, setAccount] = useState(null);
+  const openAccount = (id) => go(`loans/${id}`);
   const [posting, setPosting] = useState(false);
 
   const instalments = state.loans.flatMap((l) =>
@@ -111,7 +111,7 @@ export default function Emi({ go, sub }) {
                           <td className="right">
                             <div className="stack-btns">
                               <button className="btn small" onClick={() => setCollect(r)}>Collect</button>
-                              <button className="btn soft small" onClick={() => setAccount(r.loan.id)}>Account</button>
+                              <button className="btn soft small" onClick={() => openAccount(r.loan.id)}>Account</button>
                             </div>
                           </td>
                         </tr>
@@ -153,7 +153,7 @@ export default function Emi({ go, sub }) {
                       <td className="right">
                         <div className="stack-btns">
                           <button className="btn small" onClick={() => setCollect(r)}>Collect</button>
-                          <button className="btn soft small" onClick={() => setAccount(r.loan.id)}>Account</button>
+                          <button className="btn soft small" onClick={() => openAccount(r.loan.id)}>Account</button>
                         </div>
                       </td>
                     </tr>
@@ -167,11 +167,10 @@ export default function Emi({ go, sub }) {
         </section>
       )}
 
-      {tab === 'collections' && <CollectionsLog onAccount={setAccount} />}
+      {tab === 'collections' && <CollectionsLog onAccount={openAccount} />}
       {tab === 'calculator' && <Calculator />}
 
       {collect && <CollectModal row={collect} onClose={() => setCollect(null)} />}
-      {account && <LoanDetail id={account} onClose={() => setAccount(null)} />}
       {posting && <PaymentForm onClose={() => setPosting(false)} />}
     </div>
   );

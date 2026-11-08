@@ -7,7 +7,7 @@ import Applications from './pages/Applications';
 import Audit from './pages/Audit';
 import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
-import Loans from './pages/Loans';
+import Loans from './pages/LoanPage';
 import Repayments from './pages/Repayments';
 import Emi from './pages/Emi';
 import Notifications from './pages/Notifications';
@@ -118,6 +118,7 @@ export default function App() {
                 : page === 'dashboard' ? 'Executive Overview'
                 : page === 'notifications' ? 'Notification & Automation Engine'
                 : page === 'support' ? 'Customer Support Helpdesk'
+                : page === 'loans' ? 'Loan Accounts & Ledger'
                 : current.label}
             </h1>
           </div>
