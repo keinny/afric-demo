@@ -100,7 +100,7 @@ export default function App() {
             <h1>
               {page === 'applications'
                 ? route.sub ? 'Application Review' : 'Loan Applications Pipeline'
-                : page === 'repayments' ? 'Payments & Ledgers'
+                : page === 'repayments' ? 'Payment Records & Reconciliation'
                 : page === 'dashboard' ? 'Executive Overview'
                 : current.label}
             </h1>

@@ -3,7 +3,7 @@ import { ROLES } from './config';
 import { addMonths, allocate, buildSchedule, isoToday, money, product, summarize } from './finance';
 import { ids, makeSeed } from './seed';
 
-const KEY = 'afric-demo-v5';
+const KEY = 'afric-demo-v6';
 const Ctx = createContext(null);
 
 function load() {
@@ -109,6 +109,7 @@ function reducer(state, a) {
         note: a.note || '',
         at: new Date().toISOString(),
         by: ROLES[state.role].user,
+        verified: !!a.verified,
       };
       const loan = state.loans.find((l) => l.id === a.loanId);
       return withLog(
@@ -138,6 +139,32 @@ function reducer(state, a) {
     case 'penalty': {
       const pen = { id: `PEN-${String(state.penalties.length + 1).padStart(3, '0')}`, loanId: a.loanId, amount: +a.amount, method: a.method, date: a.date || isoToday(), ref: a.ref || '', at: new Date().toISOString(), by: ROLES[state.role].user };
       return withLog({ ...state, penalties: [...state.penalties, pen] }, `Collected late penalty of ${money(pen.amount)} on ${a.loanId} (${pen.id}).`);
+    }
+
+    case 'verifyPayment': {
+      const payments = state.payments.map((p) => (a.ids.includes(p.id) ? { ...p, verified: true } : p));
+      return withLog({ ...state, payments }, `Reconciled ${a.ids.length === 1 ? `payment ${a.ids[0]}` : `${a.ids.length} payments`} against the statement.`);
+    }
+
+    case 'matchStatement': {
+      const line = state.statement.find((s) => s.id === a.lineId);
+      const loan = state.loans.find((l) => l.id === a.loanId);
+      const pay = {
+        id: ids.receipt(nextNum(state.payments)),
+        loanId: loan.id,
+        amount: line.amount,
+        method: line.channel,
+        date: line.date,
+        ref: line.ref,
+        note: `Matched from statement: ${line.narration}`,
+        at: new Date().toISOString(),
+        by: ROLES[state.role].user,
+        verified: true,
+      };
+      return withLog(
+        { ...state, payments: [...state.payments, pay], statement: state.statement.filter((s) => s.id !== a.lineId) },
+        `Matched statement deposit ${line.ref} (${money(line.amount)}) to ${loan.id} – ${name(state, loan.customerId)}, receipt ${pay.id}.`
+      );
     }
 
     case 'addTicket': {

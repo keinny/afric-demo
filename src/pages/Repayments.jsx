@@ -2,118 +2,143 @@ import { useState } from 'react';
 import { PAY_METHODS, can } from '../config';
 import { fmtDate, money, monthKey, monthLabel, product } from '../finance';
 import { useStore } from '../store';
-import { Card, Empty, Kpi, downloadCsv } from '../ui';
+import { Card, Empty, Field, Icon, Kpi, Modal, downloadCsv } from '../ui';
 import { Ledger, PaymentForm, ReceiptModal } from './Loans';
 
-const TABS = [
-  ['repayments', 'Repayments Ledger', 'book'],
-  ['disbursements', 'Disbursement Ledger', 'coins'],
-  ['cashbook', 'Cash Book', 'wallet'],
-  ['interest', 'Interest Income', 'trend'],
-  ['statements', 'Customer Statements', 'users'],
-];
-
 export default function Ledgers({ go, sub }) {
-  const tab = TABS.some((t) => t[0] === sub) ? sub : 'repayments';
-  const View = { repayments: Repayments, disbursements: Disbursements, cashbook: CashBook, interest: Interest, statements: Statements }[tab];
+  const { state } = useStore();
+  const [recording, setRecording] = useState(false);
+  const pending = state.payments.filter((p) => !p.verified).length + (state.statement || []).length;
+  const TABS = [
+    ['payments', `Payments Ledger (${state.payments.length})`, 'book'],
+    ['reconciliation', `Bank & MoMo Reconciliation${pending ? ` (${pending})` : ''}`, 'check'],
+    ['disbursements', 'Disbursements', 'coins'],
+    ['cashbook', 'Cash Book', 'wallet'],
+    ['interest', 'Interest Income', 'trend'],
+    ['statements', 'Customer Statements', 'users'],
+  ];
+  const tab = TABS.some((t) => t[0] === sub) ? sub : 'payments';
+  const View = { payments: Payments, reconciliation: Reconciliation, disbursements: Disbursements, cashbook: CashBook, interest: Interest, statements: Statements }[tab];
+
   return (
     <div className="page">
-      <div className="ledger-tabs">
-        {TABS.map(([id, label]) => (
-          <button key={id} className={tab === id ? 'active' : ''} onClick={() => go(`repayments/${id}`)}>{label}</button>
-        ))}
-      </div>
+      <section className="card emi-head">
+        <div className="emi-head-top">
+          <div>
+            <h2>Payment Management & Collections</h2>
+            <p className="muted">Verified customer repayments, allocation ledgers and statement reconciliation.</p>
+          </div>
+          <div className="actions tight">
+            <button className="btn ghost" onClick={() => exportPayments(state)}><Icon name="file" size={16} /> Export Payments CSV</button>
+            {can(state.role, 'payment') && <button className="btn" onClick={() => setRecording(true)}>+ Record Repayment</button>}
+          </div>
+        </div>
+        <div className="pill-tabs dark">
+          {TABS.map(([id, label, icon]) => (
+            <button key={id} className={tab === id ? 'active' : ''} onClick={() => go(`repayments/${id}`)}>
+              <Icon name={icon} size={16} /> {label}
+            </button>
+          ))}
+        </div>
+      </section>
       <View />
+      {recording && <PaymentForm onClose={() => setRecording(false)} />}
     </div>
   );
+}
+
+function exportPayments(state) {
+  const name = (id) => state.customers.find((c) => c.id === id)?.name || id;
+  downloadCsv('payments.csv', [
+    ['Receipt', 'Date', 'Customer', 'Loan', 'Channel', 'Reference', 'Amount', 'Status', 'Recorded by'],
+    ...state.payments.map((p) => {
+      const l = state.loans.find((x) => x.id === p.loanId);
+      return [p.id, p.date, name(l.customerId), l.id, p.method, p.ref, p.amount, p.verified ? 'Verified' : 'Pending', p.by];
+    }),
+  ]);
 }
 
 const total = (rows, k) => rows.reduce((s, r) => s + (r[k] || 0), 0);
 const signed = (n) => (n < 0 ? `− ${money(-n)}` : money(n));
 
-/* ---------------- Repayments ledger ---------------- */
-function Repayments() {
+/* ---------------- Payments ledger ---------------- */
+function Payments() {
   const { state, customerName, split } = useStore();
   const [q, setQ] = useState('');
-  const [method, setMethod] = useState('All');
+  const [channel, setChannel] = useState('All');
   const [month, setMonth] = useState('All');
-  const [adding, setAdding] = useState(false);
   const [receiptId, setReceiptId] = useState(null);
 
   const months = [...new Set(state.payments.map((p) => monthKey(p.date)))].sort().reverse();
-  let run = 0;
-  const all = state.payments
-    .slice()
-    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+  const rows = state.payments
     .map((p) => {
       const loan = state.loans.find((l) => l.id === p.loanId);
-      run += p.amount;
-      return { ...p, loan, customer: customerName(loan.customerId), ...(split[p.id] || { interest: 0, principal: p.amount }), cumulative: run };
-    });
-  const rows = all
-    .filter((r) => method === 'All' || r.method === method)
+      return { ...p, loan, customer: customerName(loan.customerId), ...(split[p.id] || { interest: 0, principal: p.amount }) };
+    })
+    .filter((r) => channel === 'All' || r.method === channel)
     .filter((r) => month === 'All' || monthKey(r.date) === month)
-    .filter((r) => `${r.id} ${r.loan.id} ${r.customer}`.toLowerCase().includes(q.trim().toLowerCase()))
-    .reverse();
-
-  const exportCsv = () =>
-    downloadCsv('repayments-ledger.csv', [
-      ['Date', 'Receipt', 'Customer', 'Loan', 'Method', 'Principal', 'Interest', 'Amount', 'Captured by'],
-      ...rows.map((r) => [r.date, r.id, r.customer, r.loan.id, r.method, r.principal, r.interest, r.amount, r.by]),
-    ]);
+    .filter((r) => `${r.id} ${r.loan.id} ${r.customer} ${r.ref}`.toLowerCase().includes(q.trim().toLowerCase()))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
 
   return (
     <>
-      <div className="kpis small">
-        <Kpi label="Total collected" value={money(total(rows, 'amount'))} sub={`${rows.length} receipts`} icon="card" tone="green" />
-        <Kpi label="Principal recovered" value={money(total(rows, 'principal'))} sub="Reduces loan balances" icon="wallet" tone="slate" />
-        <Kpi label="Interest received" value={money(total(rows, 'interest'))} sub="Income earned" icon="trend" tone="teal" />
-        <Kpi label="Average receipt" value={money(rows.length ? total(rows, 'amount') / rows.length : 0)} sub="Per payment" icon="coins" tone="blue" />
-      </div>
-      <Card
-        title="Repayments ledger"
-        sub="Every payment received, split into principal and interest · click a row to view its receipt"
-        action={
-          <div className="actions tight">
-            <button className="btn ghost small" onClick={exportCsv}>Export CSV</button>
-            {can(state.role, 'payment') && <button className="btn small" onClick={() => setAdding(true)}>+ Record payment</button>}
-          </div>
-        }
-      >
-        <div className="filters">
-          <input placeholder="Search receipt, loan, customer…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <select value={method} onChange={(e) => setMethod(e.target.value)}>
-            <option value="All">All methods</option>
-            {PAY_METHODS.map((m) => <option key={m}>{m}</option>)}
-          </select>
+      <div className="card toolbar">
+        <div className="search">
+          <span aria-hidden>⌕</span>
+          <input placeholder="Search by receipt #, customer, account #, reference…" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <label className="filter">
+          <span className="muted small">Month</span>
           <select value={month} onChange={(e) => setMonth(e.target.value)}>
             <option value="All">All months</option>
             {months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
           </select>
-        </div>
+        </label>
+        <label className="filter">
+          <span className="muted small">Channel</span>
+          <select value={channel} onChange={(e) => setChannel(e.target.value)}>
+            <option value="All">All payment channels</option>
+            {PAY_METHODS.map((m) => <option key={m}>{m}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <Card className="flush">
         {rows.length ? (
           <div className="table-wrap">
-            <table className="ledger clickable">
+            <table className="apps">
               <thead>
-                <tr><th>Date</th><th>Receipt</th><th>Customer</th><th>Loan</th><th>Method</th><th className="num">Principal</th><th className="num">Interest</th><th className="num">Amount</th><th className="num">Cumulative</th></tr>
+                <tr>
+                  <th>Receipt #</th><th>Customer</th><th>Loan account</th><th className="num">Amount paid</th><th className="num">Principal</th>
+                  <th className="num">Interest</th><th>Channel</th><th>Date</th><th>Status</th><th className="right">Actions</th>
+                </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} onClick={() => setReceiptId(r.id)}>
-                    <td className="nowrap">{fmtDate(r.date)}</td>
-                    <td className="mono">{r.id}</td>
-                    <td>{r.customer}</td>
+                  <tr key={r.id}>
+                    <td className="mono strong">{r.id}</td>
+                    <td><strong>{r.customer}</strong></td>
                     <td className="mono">{r.loan.id}</td>
-                    <td><span className={`chan ${r.method.split(' ')[0].toLowerCase()}`}>{r.method}</span></td>
+                    <td className="num amount">{money(r.amount)}</td>
                     <td className="num">{money(r.principal)}</td>
                     <td className="num">{money(r.interest)}</td>
-                    <td className="num green-text strong">{money(r.amount)}</td>
-                    <td className="num muted">{money(r.cumulative)}</td>
+                    <td className="upper">{r.method}</td>
+                    <td className="muted">{fmtDate(r.date)}</td>
+                    <td><span className={`status-tag ${r.verified ? 'ok' : 'wait'}`}>{r.verified ? 'VERIFIED' : 'PENDING'}</span></td>
+                    <td className="right">
+                      <button className="btn soft small" onClick={() => setReceiptId(r.id)}><Icon name="file" size={14} /> Receipt</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr><td colSpan={5}>Totals ({rows.length})</td><td className="num">{money(total(rows, 'principal'))}</td><td className="num">{money(total(rows, 'interest'))}</td><td className="num green-text">{money(total(rows, 'amount'))}</td><td /></tr>
+                <tr>
+                  <td colSpan={3}>Totals ({rows.length} payments)</td>
+                  <td className="num amount">{money(total(rows, 'amount'))}</td>
+                  <td className="num">{money(total(rows, 'principal'))}</td>
+                  <td className="num">{money(total(rows, 'interest'))}</td>
+                  <td colSpan={4} />
+                </tr>
               </tfoot>
             </table>
           </div>
@@ -121,8 +146,129 @@ function Repayments() {
           <Empty>No payments match these filters.</Empty>
         )}
       </Card>
-      {adding && <PaymentForm onClose={() => setAdding(false)} />}
       {receiptId && <ReceiptModal paymentId={receiptId} onClose={() => setReceiptId(null)} />}
+    </>
+  );
+}
+
+/* ---------------- Bank & MoMo reconciliation ---------------- */
+function Reconciliation() {
+  const { state, dispatch, customerName, loanInfo } = useStore();
+  const [matching, setMatching] = useState(null);
+  const [loanId, setLoanId] = useState('');
+  const canRec = can(state.role, 'payment');
+  const statement = state.statement || [];
+  const pending = state.payments.filter((p) => !p.verified).sort((a, b) => b.date.localeCompare(a.date));
+  const openLoans = state.loans.filter((l) => loanInfo[l.id].status !== 'Settled');
+
+  const channels = PAY_METHODS.map((m) => {
+    const sys = state.payments.filter((p) => p.method === m);
+    const recorded = total(sys, 'amount');
+    const verified = total(sys.filter((p) => p.verified), 'amount');
+    const unmatched = total(statement.filter((s) => s.channel === m), 'amount');
+    return { m, recorded, verified, waiting: recorded - verified, unmatched, onStatement: verified + unmatched };
+  });
+
+  return (
+    <>
+      <div className="kpis small">
+        <Kpi label="Payments verified" value={`${state.payments.length - pending.length} / ${state.payments.length}`} sub="Matched to a statement" icon="check" tone="green" />
+        <Kpi label="Awaiting verification" value={money(total(pending, 'amount'))} sub={`${pending.length} payments recorded, not yet seen on statement`} icon="clock" tone="amber" />
+        <Kpi label="Unidentified deposits" value={money(total(statement, 'amount'))} sub={`${statement.length} statement lines with no loan`} icon="alert" tone="red" />
+      </div>
+
+      <Card title="Channel summary" sub="System records compared with the bank and mobile money statements">
+        <div className="table-wrap">
+          <table className="ledger">
+            <thead>
+              <tr><th>Channel</th><th className="num">Recorded in system</th><th className="num">Verified</th><th className="num">Awaiting</th><th className="num">On statement</th><th className="num">Unidentified</th><th className="num">Difference</th></tr>
+            </thead>
+            <tbody>
+              {channels.map((c) => {
+                const diff = c.onStatement - c.recorded;
+                return (
+                  <tr key={c.m}>
+                    <td><span className={`chan ${c.m.split(' ')[0].toLowerCase()}`}>{c.m}</span></td>
+                    <td className="num">{money(c.recorded)}</td>
+                    <td className="num green-text">{money(c.verified)}</td>
+                    <td className="num">{c.waiting ? money(c.waiting) : '—'}</td>
+                    <td className="num">{money(c.onStatement)}</td>
+                    <td className="num">{c.unmatched ? money(c.unmatched) : '—'}</td>
+                    <td className={`num strong ${Math.abs(diff) < 0.01 ? 'green-text' : 'red-text'}`}>{Math.abs(diff) < 0.01 ? 'Balanced' : signed(diff)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <div className="grid-2">
+        <Card
+          title="Recorded, awaiting statement"
+          sub="Tick off once the money shows on the bank or MoMo statement"
+          action={canRec && pending.length > 1 && <button className="btn small" onClick={() => dispatch({ type: 'verifyPayment', ids: pending.map((p) => p.id) })}>Verify all</button>}
+        >
+          {pending.length ? (
+            <ul className="feed">
+              {pending.map((p) => {
+                const l = state.loans.find((x) => x.id === p.loanId);
+                return (
+                  <li key={p.id}>
+                    <div>
+                      <strong>{customerName(l.customerId)} · {money(p.amount)}</strong>
+                      <span className="muted small">{p.id} · {p.method} · {p.ref || 'no ref'} · {fmtDate(p.date)}</span>
+                    </div>
+                    {canRec ? <button className="btn soft small" onClick={() => dispatch({ type: 'verifyPayment', ids: [p.id] })}>Verify</button> : <span className="status-tag wait">PENDING</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <Empty>Everything recorded has been verified.</Empty>
+          )}
+        </Card>
+
+        <Card title="Unidentified statement deposits" sub="Money received with no matching record – match it to a loan">
+          {statement.length ? (
+            <ul className="feed">
+              {statement.map((s) => (
+                <li key={s.id}>
+                  <div>
+                    <strong>{money(s.amount)} · {s.channel}</strong>
+                    <span className="muted small">{s.ref} · {fmtDate(s.date)}</span>
+                    <span className="muted small">{s.narration}</span>
+                  </div>
+                  {canRec ? <button className="btn small" onClick={() => { setMatching(s); setLoanId(openLoans[0]?.id || ''); }}>Match to loan</button> : <span className="status-tag bad">UNMATCHED</span>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Empty>No unidentified deposits.</Empty>
+          )}
+          {!canRec && <p className="muted small">Switch to Finance Officer to verify and match payments.</p>}
+        </Card>
+      </div>
+
+      {matching && (
+        <Modal title="Match deposit to loan" sub={`${money(matching.amount)} · ${matching.channel} · ${matching.ref}`} onClose={() => setMatching(null)}>
+          <div className="form">
+            <p className="muted">{matching.narration} · received {fmtDate(matching.date)}</p>
+            <Field label="Loan account">
+              <select value={loanId} onChange={(e) => setLoanId(e.target.value)}>
+                {openLoans.map((l) => (
+                  <option key={l.id} value={l.id}>{l.id} — {customerName(l.customerId)} ({money(loanInfo[l.id].balance)} balance)</option>
+                ))}
+              </select>
+            </Field>
+            <p className="muted small">This creates a verified payment on the loan using the statement reference.</p>
+            <div className="modal-foot">
+              <button className="btn ghost" onClick={() => setMatching(null)}>Cancel</button>
+              <button className="btn" disabled={!loanId} onClick={() => { dispatch({ type: 'matchStatement', lineId: matching.id, loanId }); setMatching(null); }}>Match & post payment</button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </>
   );
 }
