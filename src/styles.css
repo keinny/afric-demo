@@ -430,6 +430,18 @@ input.big { font-size: 18px; font-weight: 700; padding: 10px 12px; }
 .alloc-rows b { font-size: 14px; }
 .alloc p { margin: 8px 0 0; font-size: 12px; color: #115e59; }
 
+/* logo (cropped from the 1920x1280 source: x 260-1680, y 200-880; tall keeps the slogan to y 1060) */
+.logo-crop { display: block; position: relative; overflow: hidden; width: 100%; aspect-ratio: 1420 / 680; }
+.logo-crop.tall { aspect-ratio: 1420 / 860; }
+.logo-crop img { position: absolute; width: 135.21%; max-width: none; left: -18.31%; top: -29.41%; }
+.logo-crop.tall img { top: -23.26%; }
+.brand { flex-direction: column; align-items: stretch; gap: 8px; padding: 16px 16px 14px; }
+.logo-tile { background: transparent; padding: 0 4px; }
+.brand-line { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 0 2px; }
+.brand-line strong { font-size: 13px; }
+.brand-line span { font-size: 11px; white-space: nowrap; }
+.receipt-logo { width: 190px; margin: 0 auto 6px; }
+
 /* top bar tools */
 .top-tools { display: flex; align-items: center; gap: 10px; }
 .gsearch { position: relative; display: flex; align-items: center; gap: 8px; background: #f1f5f9; border: 1px solid var(--line); border-radius: 10px; padding: 0 8px 0 12px; height: 40px; width: 250px; color: var(--muted); }

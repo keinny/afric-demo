@@ -3,6 +3,8 @@ import { PAY_METHODS, can } from '../config';
 import { fmtDate, money, monthKey, monthLabel, product } from '../finance';
 import { useStore } from '../store';
 import { Card, Empty, Field, Icon, Kpi, Modal, downloadCsv } from '../ui';
+import { docHead, docTitle, printHtml } from '../print';
+import { loanStatementHtml } from './LoanPage';
 import { Ledger, PaymentForm, ReceiptModal } from './Loans';
 
 export default function Ledgers({ go, sub }) {
@@ -442,7 +444,7 @@ function Interest() {
 
 /* ---------------- Customer statements ---------------- */
 function Statements() {
-  const { state, loanInfo } = useStore();
+  const { state, loanInfo, today } = useStore();
   const withLoans = state.customers.filter((c) => state.loans.some((l) => l.customerId === c.id));
   const [cid, setCid] = useState(withLoans[0]?.id);
   const c = state.customers.find((x) => x.id === cid);
@@ -461,7 +463,7 @@ function Statements() {
           <select value={cid} onChange={(e) => setCid(e.target.value)}>
             {withLoans.map((x) => <option key={x.id} value={x.id}>{x.name} ({x.id})</option>)}
           </select>
-          <button className="btn ghost small" onClick={() => window.print()}>Print</button>
+          <button className="btn ghost small" onClick={() => printHtml(docTitle(), docHead('Official Borrower Statement of Account', [`Date: ${fmtDate(today)}`, `Customer: ${c.id}`]) + loans.map((l) => loanStatementHtml(l, loanInfo[l.id], c, state.penalties || [], today)).join('<div style="height:22px"></div>'))}>Print Statement</button>
         </div>
       }>
         <dl className="details">
