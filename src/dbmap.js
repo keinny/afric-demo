@@ -11,9 +11,9 @@ export const TABLES = {
   penalties: 'penalties',
   collections: 'collections',
   tickets: 'tickets',
-  sms: 'sms_outbox',
   statement: 'statement_lines',
   audit: 'audit_log',
+  sms: 'sms_outbox', // last: optional until patch-002-sms.sql has been run
 };
 
 // Field names that are SQL keywords or read better renamed in the database.
