@@ -3,7 +3,7 @@ import { ROLES } from './config';
 import { addMonths, buildSchedule, isoToday, money, product, summarize } from './finance';
 import { ids, makeSeed } from './seed';
 
-const KEY = 'afric-demo-v2';
+const KEY = 'afric-demo-v3';
 const Ctx = createContext(null);
 
 function load() {
@@ -43,7 +43,8 @@ function reducer(state, a) {
         status: 'Submitted',
         createdAt: isoToday(),
         checklist: Array(6).fill(false),
-        note: '',
+        assignedTo: ROLES[state.role].user,
+        notes: [],
       };
       return withLog(
         { ...state, applications: [app, ...state.applications] },
@@ -58,8 +59,17 @@ function reducer(state, a) {
       return withLog({ ...state, applications }, `${a.value ? 'Ticked' : 'Unticked'} check ${a.index + 1} on ${a.id}.`);
     }
 
+    case 'addNote': {
+      const r = ROLES[state.role];
+      const note = { by: r.user, role: r.label, at: new Date().toISOString(), text: a.text };
+      const applications = state.applications.map((x) => (x.id === a.id ? { ...x, notes: [...(x.notes || []), note] } : x));
+      return withLog({ ...state, applications }, `Added review note on ${a.id}.`);
+    }
+
     case 'status': {
-      const applications = state.applications.map((x) => (x.id === a.id ? { ...x, status: a.status, note: a.note ?? x.note } : x));
+      const r = ROLES[state.role];
+      const note = a.note ? [{ by: r.user, role: r.label, at: new Date().toISOString(), text: `${a.status}: ${a.note}` }] : [];
+      const applications = state.applications.map((x) => (x.id === a.id ? { ...x, status: a.status, notes: [...(x.notes || []), ...note] } : x));
       const verb = { 'In Review': 'Started verification of', Approved: 'Approved', Rejected: 'Rejected' }[a.status] || 'Updated';
       return withLog({ ...state, applications }, `${verb} application ${a.id}${a.note ? ` – ${a.note}` : ''}.`);
     }

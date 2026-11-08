@@ -100,6 +100,9 @@ export function LoanDetail({ id, onClose }) {
         </table>
       </div>
 
+      <h4>Ledger</h4>
+      <Ledger loan={loan} />
+
       <h4>Payments</h4>
       {pays.length ? (
         <ul className="feed">
@@ -115,6 +118,57 @@ export function LoanDetail({ id, onClose }) {
       )}
       {paying && <PaymentForm loanId={id} onClose={() => setPaying(false)} />}
     </Modal>
+  );
+}
+
+/** Double-entry style ledger: disbursement and interest as debits, payments as credits. */
+export function Ledger({ loan }) {
+  const { state, today } = useStore();
+  const entries = [
+    { date: loan.disbursedOn, ref: loan.id, text: `Loan disbursed (${loan.disburseMethod})`, debit: loan.principal, credit: 0, kind: 'disb' },
+  ];
+  loan.schedule
+    .filter((r) => r.due <= today)
+    .forEach((r) => entries.push({ date: r.due, ref: `INST-${r.no}`, text: `Interest charged – instalment ${r.no}`, debit: r.interest, credit: 0, kind: 'int' }));
+  state.payments
+    .filter((p) => p.loanId === loan.id)
+    .forEach((p) => entries.push({ date: p.date, ref: p.id, text: `Repayment received – ${p.method}`, debit: 0, credit: p.amount, kind: 'pay' }));
+  entries.sort((a, b) => a.date.localeCompare(b.date) || b.debit - a.debit);
+
+  let bal = 0;
+  const rows = entries.map((e) => ({ ...e, balance: (bal = Math.round((bal + e.debit - e.credit) * 100) / 100) }));
+  const totalDr = entries.reduce((s, e) => s + e.debit, 0);
+  const totalCr = entries.reduce((s, e) => s + e.credit, 0);
+
+  return (
+    <div className="table-wrap">
+      <table className="ledger">
+        <thead>
+          <tr><th>Date</th><th>Reference</th><th>Description</th><th className="num">Debit</th><th className="num">Credit</th><th className="num">Balance</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((e, i) => (
+            <tr key={i} className={e.kind}>
+              <td className="nowrap">{fmtDate(e.date)}</td>
+              <td className="mono">{e.ref}</td>
+              <td>{e.text}</td>
+              <td className="num">{e.debit ? money(e.debit) : ''}</td>
+              <td className="num green-text">{e.credit ? money(e.credit) : ''}</td>
+              <td className="num strong">{money(Math.max(0, e.balance))}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={3}>Totals to date</td>
+            <td className="num">{money(totalDr)}</td>
+            <td className="num green-text">{money(totalCr)}</td>
+            <td className="num">{money(Math.max(0, totalDr - totalCr))}</td>
+          </tr>
+        </tfoot>
+      </table>
+      <p className="muted small">Interest is posted on each instalment due date. Balance = amount lent + interest charged so far − payments.</p>
+    </div>
   );
 }
 

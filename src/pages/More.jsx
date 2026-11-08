@@ -3,7 +3,6 @@ import { BRAND, CHECKLIST, PRODUCTS, ROLES, can } from '../config';
 import { addDays, estimateInstallment, fmtDate, money, product } from '../finance';
 import { useStore } from '../store';
 import { Badge, Card, Empty, Field, Modal, Stat } from '../ui';
-import { AppDetail } from './Applications';
 import { LoanDetail } from './Loans';
 
 /* ---------- Loan Products ---------- */
@@ -41,9 +40,8 @@ export function Products() {
 }
 
 /* ---------- Verification ---------- */
-export function Verification() {
+export function Verification({ go }) {
   const { state, customerName } = useStore();
-  const [openId, setOpenId] = useState(null);
   const queue = state.applications.filter((a) => a.status === 'Submitted' || a.status === 'In Review');
   return (
     <div className="page">
@@ -58,7 +56,7 @@ export function Verification() {
                 {queue.map((a) => {
                   const done = a.checklist.filter(Boolean).length;
                   return (
-                    <tr key={a.id} onClick={() => setOpenId(a.id)}>
+                    <tr key={a.id} onClick={() => go(`applications/${a.id}`)}>
                       <td className="mono">{a.id}</td>
                       <td>{customerName(a.customerId)}</td>
                       <td>{product(a.productId).name}</td>
@@ -78,7 +76,6 @@ export function Verification() {
           <Empty>Nothing waiting for verification.</Empty>
         )}
       </Card>
-      {openId && <AppDetail id={openId} onClose={() => setOpenId(null)} />}
     </div>
   );
 }

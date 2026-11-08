@@ -28,12 +28,12 @@ export const can = (role, perm) => {
 };
 
 export const CHECKLIST = [
-  'NRC / ID verified',
-  'Proof of income',
-  'Bank or mobile money statement',
-  'Employer or business confirmed',
-  'Credit reference check',
-  'Collateral or guarantor confirmed',
+  { label: 'Identity document checked', hint: 'Original NRC seen and copied' },
+  { label: 'Identity details confirmed', hint: 'Name and NRC number match records' },
+  { label: 'Address confirmed', hint: 'Utility bill or landlord letter on file' },
+  { label: 'Income confirmed', hint: 'Payslips or business records reviewed' },
+  { label: 'Bank or mobile money statement', hint: 'Last 3 months reviewed' },
+  { label: 'Credit reference check', hint: 'No unpaid arrears with other lenders' },
 ];
 
 export const PAY_METHODS = ['Mobile Money', 'Bank Transfer', 'Cash'];

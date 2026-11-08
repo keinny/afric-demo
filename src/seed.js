@@ -60,17 +60,42 @@ export function makeSeed() {
   APPS.forEach(([ci, pid, amount, months, status, ago, missed], i) => {
     const created = addDays(today, -ago);
     const done = ['Approved', 'Disbursed', 'Rejected'].includes(status);
+    const noteAt = (d, t) => `${addDays(created, d)}T${t}:00`;
+    const notes = [];
+    if (status === 'In Review')
+      notes.push({ by: ROLES.verifier.user, role: ROLES.verifier.label, at: noteAt(1, '10:15'), text: 'Waiting for bank statement and credit reference report.' });
+    if (['Approved', 'Disbursed'].includes(status))
+      notes.push({ by: ROLES.manager.user, role: ROLES.manager.label, at: noteAt(2, '11:00'), text: 'Approved – income comfortably covers the instalment and all checks passed.' });
+    if (status === 'Rejected')
+      notes.push({ by: ROLES.manager.user, role: ROLES.manager.label, at: noteAt(2, '15:30'), text: 'Declined – customer has unpaid arrears with another lender.' });
+
     const app = {
       id: ids.app(i + 1),
       customerId: customers[ci].id,
       productId: pid,
       amount,
       months,
-      purpose: pid === 'SAL' ? 'Personal / household' : pid === 'SME' ? 'Stock and working capital' : 'Vehicle / equipment purchase',
+      income: 6000 + Math.round(((ci * 3571) % 20000) / 500) * 500,
+      purpose: [
+        'School fees and household costs',
+        'Restocking shop inventory',
+        'Medical bills',
+        'Home repairs',
+        'Buying catering equipment',
+        'Purchase of a delivery truck',
+        'Rent deposit for new house',
+        'Fertiliser and seed for the season',
+        'Emergency travel costs',
+        'Second-hand minibus for transport business',
+        'Furniture for new home',
+        'Expanding market stall',
+        'Personal expenses',
+      ][i],
+      assignedTo: ROLES.officer.user,
       status,
       createdAt: created,
       checklist: CHECKLIST.map((_, k) => done || (status === 'In Review' && k < 4)),
-      note: status === 'Rejected' ? 'Existing arrears on another loan.' : '',
+      notes,
     };
     applications.push(app);
 
