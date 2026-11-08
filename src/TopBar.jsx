@@ -6,11 +6,13 @@ import { Icon } from './ui';
 
 /** Search, reload, notifications, demo role switcher and signed-in avatar. */
 export default function TopTools({ go, onReload }) {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, online, me, signOut, reloadFromDb } = useStore();
+  const canSwitch = !online || me?.roleKey === 'admin';
+  const who = online && me?.name ? { name: me.name, initials: me.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() } : SIGNED_IN;
   return (
     <div className="top-tools">
       <GlobalSearch go={go} />
-      <button className="tool-btn" onClick={onReload} title="Reload data" aria-label="Reload data">
+      <button className="tool-btn" onClick={() => { if (online) reloadFromDb(); onReload(); }} title="Reload data" aria-label="Reload data">
         <Icon name="refresh" size={18} />
       </button>
       <Bell go={go} />
@@ -22,13 +24,13 @@ export default function TopTools({ go, onReload }) {
           <b>{ROLES[state.role].label.toUpperCase()}</b>
         </span>
         <span className="chev">▾</span>
-        <select value={state.role} onChange={(e) => dispatch({ type: 'role', role: e.target.value })} aria-label="Demo role">
+        <select value={state.role} disabled={!canSwitch} title={canSwitch ? 'Switch role' : 'Your role is set by your staff profile'} onChange={(e) => dispatch({ type: 'role', role: e.target.value })} aria-label="Demo role">
           {Object.entries(ROLES).map(([k, r]) => (
             <option key={k} value={k}>{r.label} – {r.user}</option>
           ))}
         </select>
       </label>
-      <div className="avatar" title={`Signed in as ${SIGNED_IN.name}`}>{SIGNED_IN.initials}</div>
+      <button className="avatar" title={online ? `Signed in as ${who.name} – click to sign out` : `Signed in as ${who.name}`} onClick={() => online && confirm(`Sign out ${who.name}?`) && signOut()}>{who.initials}</button>
     </div>
   );
 }

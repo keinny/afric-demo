@@ -40,7 +40,7 @@ const fromHash = () => {
 };
 
 export default function App() {
-  const { state, dispatch, loanInfo } = useStore();
+  const { state, dispatch, loanInfo, online, me } = useStore();
   const [route, setRoute] = useState(fromHash);
   const page = route.id;
   const [menu, setMenu] = useState(false);
@@ -96,15 +96,21 @@ export default function App() {
           <button className="wa-tag" onClick={() => go('notifications')} title="WhatsApp is locked off by messaging policy">
             <Icon name="alert" size={14} /> WhatsApp: Restricted
           </button>
-          <button
-            className="btn ghost small"
-            onClick={() => {
-              if (confirm('Reset all demo data back to the starting sample?')) dispatch({ type: 'reset' });
-            }}
-          >
-            Reset demo data
-          </button>
-          <p>Data is stored only in this browser.</p>
+          {online ? (
+            <p>Connected to the Africo database{me?.name ? ` · ${me.name}` : ''}.</p>
+          ) : (
+            <>
+              <button
+                className="btn ghost small"
+                onClick={() => {
+                  if (confirm('Reset all demo data back to the starting sample?')) dispatch({ type: 'reset' });
+                }}
+              >
+                Reset demo data
+              </button>
+              <p>Data is stored only in this browser.</p>
+            </>
+          )}
         </div>
       </aside>
       {menu && <div className="scrim" onClick={() => setMenu(false)} />}
