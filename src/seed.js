@@ -185,5 +185,7 @@ export function makeSeed() {
     by: ROLES.finance.user,
   })).filter((c) => c.loanId);
 
-  return { role: 'admin', customers, applications, loans, payments, audit, tickets, collections, penalties: [], statement };
+  const rules = { disbursement: true, payment: true, confirmation: true, upcoming: true, overdue: true, approved: true, whatsapp: false };
+
+  return { role: 'admin', customers, applications, loans, payments, audit, tickets, collections, penalties: [], statement, rules };
 }

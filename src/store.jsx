@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
-import { ROLES } from './config';
+import { CHANNEL_POLICY, NOTIFY_RULES, ROLES } from './config';
 import { addMonths, allocate, buildSchedule, isoToday, money, product, summarize } from './finance';
 import { ids, makeSeed } from './seed';
 
-const KEY = 'afric-demo-v6';
+const KEY = 'afric-demo-v7';
 const Ctx = createContext(null);
 
 function load() {
@@ -139,6 +139,16 @@ function reducer(state, a) {
     case 'penalty': {
       const pen = { id: `PEN-${String(state.penalties.length + 1).padStart(3, '0')}`, loanId: a.loanId, amount: +a.amount, method: a.method, date: a.date || isoToday(), ref: a.ref || '', at: new Date().toISOString(), by: ROLES[state.role].user };
       return withLog({ ...state, penalties: [...state.penalties, pen] }, `Collected late penalty of ${money(pen.amount)} on ${a.loanId} (${pen.id}).`);
+    }
+
+    case 'toggleRule': {
+      const rule = NOTIFY_RULES.find((r) => r.id === a.id);
+      // Policy enforcement: rules on a locked channel can never be switched on.
+      if (!rule || CHANNEL_POLICY[rule.channel]?.locked) {
+        return withLog(state, `Blocked attempt to enable "${rule?.name || a.id}" – ${rule?.channel} channel is locked by messaging policy.`);
+      }
+      const on = !state.rules[a.id];
+      return withLog({ ...state, rules: { ...state.rules, [a.id]: on } }, `${on ? 'Enabled' : 'Paused'} notification rule "${rule.name}".`);
     }
 
     case 'verifyPayment': {
