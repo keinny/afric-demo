@@ -13,7 +13,7 @@ const CURRENCIES = [
 const TIMEZONES = ['Africa/Lusaka', 'Africa/Johannesburg', 'Africa/Harare', 'Africa/Nairobi', 'UTC'];
 
 export default function Settings() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, online } = useStore();
   const isAdmin = can(state.role, '*');
   const [f, setF] = useState(state.settings || {});
   const [saved, setSaved] = useState(false);
@@ -120,13 +120,16 @@ export default function Settings() {
       </section>
 
       <section className="card">
-        <h3 className="set-title"><Icon name="refresh" size={18} /> Demo Data</h3>
+        <h3 className="set-title"><Icon name="refresh" size={18} /> {online ? 'Database' : 'Demo Data'}</h3>
         <p className="muted">
-          {state.customers.length} customers · {state.applications.length} applications · {state.loans.length} loans · {state.payments.length} payments · {state.audit.length} audit entries. Stored only in this browser.
+          {state.customers.length} customers · {state.applications.length} applications · {state.loans.length} loans · {state.payments.length} payments · {state.audit.length} audit entries.{' '}
+          {online ? 'Stored in the Supabase database and shared by all staff.' : 'Stored only in this browser.'}
         </p>
-        <button className="btn danger" disabled={!isAdmin} onClick={() => confirm('Reset all demo data back to the starting sample?') && dispatch({ type: 'reset' })}>
-          Reset demo data
-        </button>
+        {!online && (
+          <button className="btn danger" disabled={!isAdmin} onClick={() => confirm('Reset all demo data back to the starting sample?') && dispatch({ type: 'reset' })}>
+            Reset demo data
+          </button>
+        )}
       </section>
     </div>
   );

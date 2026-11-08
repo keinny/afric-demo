@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed:sql": "node --experimental-specifier-resolution=node scripts/make-seed-sql.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.45.4",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "recharts": "2.12.7"

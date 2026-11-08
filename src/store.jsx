@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { loadAll, online, supabase, syncDiff } from './db';
 import { BRAND, CHANNEL_POLICY, DEPARTMENTS, NOTIFY_RULES, ROLES } from './config';
 import { addMonths, allocate, buildSchedule, isoToday, money, product, summarize } from './finance';
 import { ids, makeSeed } from './seed';
@@ -23,9 +24,12 @@ function load() {
 const nextNum = (list) => list.length + 1;
 const name = (state, customerId) => state.customers.find((c) => c.id === customerId)?.name || customerId;
 
+// Name recorded on actions: the signed-in staff member (database mode) or the demo role's sample user.
+const actorName = (state) => state.actor?.name || ROLES[state.role].user;
+
 function withLog(state, text) {
   const r = ROLES[state.role];
-  const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, at: new Date().toISOString(), user: r.user, role: r.label, text };
+  const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, at: new Date().toISOString(), user: actorName(state), role: r.label, text };
   return { ...state, audit: [entry, ...state.audit].slice(0, 500) };
 }
 
@@ -35,7 +39,10 @@ function reducer(state, a) {
       return withLog({ ...state, role: a.role }, `Switched to ${ROLES[a.role].label} view.`);
 
     case 'reset':
-      return makeSeed();
+      return online ? state : makeSeed(); // never wipe the shared database from the app
+
+    case 'hydrate':
+      return a.state;
 
     case 'addCustomer': {
       const c = { ...a.customer, id: ids.customer(nextNum(state.customers)), joined: isoToday() };
@@ -49,7 +56,7 @@ function reducer(state, a) {
         status: 'Submitted',
         createdAt: isoToday(),
         checklist: Array(6).fill(false),
-        assignedTo: ROLES[state.role].user,
+        assignedTo: actorName(state),
         notes: [],
       };
       return withLog(
@@ -67,14 +74,14 @@ function reducer(state, a) {
 
     case 'addNote': {
       const r = ROLES[state.role];
-      const note = { by: r.user, role: r.label, at: new Date().toISOString(), text: a.text };
+      const note = { by: actorName(state), role: r.label, at: new Date().toISOString(), text: a.text };
       const applications = state.applications.map((x) => (x.id === a.id ? { ...x, notes: [...(x.notes || []), note] } : x));
       return withLog({ ...state, applications }, `Added review note on ${a.id}.`);
     }
 
     case 'status': {
       const r = ROLES[state.role];
-      const note = a.note ? [{ by: r.user, role: r.label, at: new Date().toISOString(), text: `${a.status}: ${a.note}` }] : [];
+      const note = a.note ? [{ by: actorName(state), role: r.label, at: new Date().toISOString(), text: `${a.status}: ${a.note}` }] : [];
       const applications = state.applications.map((x) => (x.id === a.id ? { ...x, status: a.status, notes: [...(x.notes || []), ...note] } : x));
       const verb = { 'In Review': 'Started verification of', Approved: 'Approved', Rejected: 'Rejected' }[a.status] || 'Updated';
       return withLog({ ...state, applications }, `${verb} application ${a.id}${a.note ? ` – ${a.note}` : ''}.`);
@@ -114,7 +121,7 @@ function reducer(state, a) {
         ref: a.ref || '',
         note: a.note || '',
         at: new Date().toISOString(),
-        by: ROLES[state.role].user,
+        by: actorName(state),
         verified: !!a.verified,
       };
       const loan = state.loans.find((l) => l.id === a.loanId);
@@ -134,7 +141,7 @@ function reducer(state, a) {
         note: a.note || '',
         promiseDate: a.promiseDate || null,
         at: new Date().toISOString(),
-        by: r.user,
+        by: actorName(state),
       };
       return withLog(
         { ...state, collections: [entry, ...state.collections] },
@@ -143,7 +150,7 @@ function reducer(state, a) {
     }
 
     case 'penalty': {
-      const pen = { id: `PEN-${String(state.penalties.length + 1).padStart(3, '0')}`, loanId: a.loanId, amount: +a.amount, method: a.method, date: a.date || isoToday(), ref: a.ref || '', at: new Date().toISOString(), by: ROLES[state.role].user };
+      const pen = { id: `PEN-${String(state.penalties.length + 1).padStart(3, '0')}`, loanId: a.loanId, amount: +a.amount, method: a.method, date: a.date || isoToday(), ref: a.ref || '', at: new Date().toISOString(), by: actorName(state) };
       return withLog({ ...state, penalties: [...state.penalties, pen] }, `Collected late penalty of ${money(pen.amount)} on ${a.loanId} (${pen.id}).`);
     }
 
@@ -174,7 +181,7 @@ function reducer(state, a) {
         ref: line.ref,
         note: `Matched from statement: ${line.narration}`,
         at: new Date().toISOString(),
-        by: ROLES[state.role].user,
+        by: actorName(state),
         verified: true,
       };
       return withLog(
@@ -218,7 +225,7 @@ function reducer(state, a) {
       const t = {
         priority: 'Medium',
         description: '',
-        assignedTo: ROLES[state.role].user,
+        assignedTo: actorName(state),
         ...a.ticket,
         id: `${BRAND.prefix}-TCK-${String(state.tickets.length + 1).padStart(3, '0')}`,
         status: 'Open',
@@ -240,7 +247,7 @@ function reducer(state, a) {
           ? {
               ...t,
               ...a.changes,
-              replies: a.reply ? [...(t.replies || []), { by: r.user, at: new Date().toISOString(), text: a.reply }] : t.replies || [],
+              replies: a.reply ? [...(t.replies || []), { by: actorName(state), at: new Date().toISOString(), text: a.reply }] : t.replies || [],
             }
           : t
       );
@@ -255,14 +262,87 @@ function reducer(state, a) {
   }
 }
 
-export function StoreProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, undefined, load);
+/** Empty shell used while the database is loading. */
+const emptyState = () => {
+  const s = makeSeed();
+  return { ...s, customers: [], applications: [], loans: [], payments: [], audit: [], tickets: [], collections: [], penalties: [], statement: [], staff: [], rules: {} };
+};
 
+export function StoreProvider({ children }) {
+  const [state, dispatch] = useReducer(reducer, undefined, online ? emptyState : load);
+  // boot: 'ready' (demo or loaded) | 'checking' | 'login' | 'loading' | 'nostaff' | 'error'
+  const [boot, setBoot] = useState(online ? 'checking' : 'ready');
+  const [me, setMe] = useState(null); // signed-in staff record (database mode)
+  const [bootError, setBootError] = useState('');
+  const [syncError, setSyncError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const synced = useRef(null); // last state known to be in the database
+  const queue = useRef(Promise.resolve());
+
+  // ---- demo mode: keep data in this browser ----
   useEffect(() => {
+    if (online) return;
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
     } catch {}
   }, [state]);
+
+  // ---- database mode: sign-in, load, then save every change ----
+  const loadFor = useCallback(async (session) => {
+    setBoot('loading');
+    try {
+      const data = await loadAll();
+      const email = session.user.email?.toLowerCase();
+      const staff = data.staff.find((s) => s.email?.toLowerCase() === email && s.active);
+      if (!staff) {
+        setMe({ email: session.user.email });
+        setBoot('nostaff');
+        return;
+      }
+      const next = { ...emptyState(), ...data, role: staff.roleKey, actor: { name: staff.name } };
+      synced.current = next;
+      dispatch({ type: 'hydrate', state: next });
+      setMe(staff);
+      setBoot('ready');
+    } catch (e) {
+      setBootError(e.message);
+      setBoot('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!online) return;
+    supabase.auth.getSession().then(({ data }) => (data.session ? loadFor(data.session) : setBoot('login')));
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) loadFor(session);
+      if (event === 'SIGNED_OUT') {
+        setMe(null);
+        synced.current = null;
+        dispatch({ type: 'hydrate', state: emptyState() });
+        setBoot('login');
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [loadFor]);
+
+  useEffect(() => {
+    if (!online || boot !== 'ready' || !synced.current || synced.current === state) return;
+    const prev = synced.current;
+    synced.current = state;
+    setSaving(true);
+    queue.current = queue.current
+      .then(() => syncDiff(prev, state))
+      .then(() => setSyncError(''))
+      .catch((e) => setSyncError(e.message))
+      .finally(() => setSaving(false));
+  }, [state, boot]);
+
+  const signOut = () => online && supabase.auth.signOut();
+  const reloadFromDb = async () => {
+    if (!online) return;
+    const { data } = await supabase.auth.getSession();
+    if (data.session) await loadFor(data.session);
+  };
 
   const derived = useMemo(() => {
     const today = isoToday();
@@ -272,7 +352,8 @@ export function StoreProvider({ children }) {
     return { loanInfo, customerName, today, split };
   }, [state]);
 
-  return <Ctx.Provider value={{ state, dispatch, ...derived }}>{children}</Ctx.Provider>;
+  const value = { state, dispatch, ...derived, online, me, boot, bootError, saving, syncError, signOut, reloadFromDb };
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export const useStore = () => useContext(Ctx);
