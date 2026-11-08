@@ -3,7 +3,7 @@ import { ROLES } from './config';
 import { addMonths, buildSchedule, isoToday, money, product, summarize } from './finance';
 import { ids, makeSeed } from './seed';
 
-const KEY = 'afric-demo-v1';
+const KEY = 'afric-demo-v2';
 const Ctx = createContext(null);
 
 function load() {
@@ -95,6 +95,16 @@ function reducer(state, a) {
         { ...state, payments: [...state.payments, pay] },
         `Recorded ${a.method} payment of ${money(pay.amount)} on ${loan.id} (${name(state, loan.customerId)}), receipt ${pay.id}.`
       );
+    }
+
+    case 'addTicket': {
+      const t = { ...a.ticket, id: `TCK-${String(state.tickets.length + 1).padStart(3, '0')}`, status: 'Open', createdAt: isoToday() };
+      return withLog({ ...state, tickets: [t, ...state.tickets] }, `Opened support ticket ${t.id} for ${name(state, t.customerId)}: ${t.subject}.`);
+    }
+
+    case 'ticketStatus': {
+      const tickets = state.tickets.map((t) => (t.id === a.id ? { ...t, status: a.status } : t));
+      return withLog({ ...state, tickets }, `Marked ticket ${a.id} as ${a.status}.`);
     }
 
     default:

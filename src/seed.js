@@ -119,5 +119,19 @@ export function makeSeed() {
     { at: at(6, '15:45'), who: 'finance', text: 'Posted month-end collections to the ledger.' },
   ].map((a, i) => ({ id: `seed-${i}`, at: a.at, user: ROLES[a.who].user, role: ROLES[a.who].label, text: a.text }));
 
-  return { role: 'admin', customers, applications, loans, payments, audit };
+  const tickets = [
+    [3, 'Request for payment extension', 'Repayment', 'Open', 2],
+    [1, 'Statement needed for bank', 'Statement', 'Open', 1],
+    [0, 'Confirm final payment date', 'Enquiry', 'Resolved', 9],
+    [4, 'Mobile money payment not reflecting', 'Payment', 'In Progress', 3],
+  ].map(([ci, subject, category, status, ago], i) => ({
+    id: `TCK-${pad(i + 1)}`,
+    customerId: customers[ci].id,
+    subject,
+    category,
+    status,
+    createdAt: addDays(today, -ago),
+  }));
+
+  return { role: 'admin', customers, applications, loans, payments, audit, tickets };
 }

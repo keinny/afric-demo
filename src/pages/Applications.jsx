@@ -61,7 +61,7 @@ export default function Applications() {
   );
 }
 
-function AppDetail({ id, onClose }) {
+export function AppDetail({ id, onClose }) {
   const { state, dispatch, customerName } = useStore();
   const app = state.applications.find((a) => a.id === id);
   const p = product(app.productId);
