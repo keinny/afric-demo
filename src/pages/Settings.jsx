@@ -27,7 +27,7 @@ export default function Settings() {
   };
   const grace = Number(f.graceDays);
   const pct = Number(f.penaltyPct);
-  const valid = f.clientName?.trim() && grace >= 0 && grace <= 60 && pct >= 0 && pct <= 50;
+  const valid = f.clientName?.trim() && grace >= 0 && grace <= 60 && pct >= 0 && pct <= 50 && /^[A-Za-z0-9 ]{2,11}$/.test(f.smsSender || 'AFRICO');
   const dirty = JSON.stringify(f) !== JSON.stringify(state.settings);
 
   const save = () => {
@@ -104,7 +104,27 @@ export default function Settings() {
             </p>
           </div>
         </section>
+
+        <section className="card">
+          <h3 className="set-title"><Icon name="card" size={18} /> SMS Messaging</h3>
+          <div className="form">
+            <div className="row">
+              <Field label="SMS sender name (max 11 characters)">
+                <input value={f.smsSender || ''} maxLength={11} onChange={set('smsSender')} className={/^[A-Za-z0-9 ]{2,11}$/.test(f.smsSender || '') ? 'mono' : 'mono invalid'} />
+              </Field>
+              <Field label="SMS provider">
+                <input value={online ? 'Set in Supabase (send-sms function)' : 'Demo mode – nothing is sent'} disabled />
+              </Field>
+            </div>
+            <p className="muted small">
+              The sender name must be registered with ZICTA and the networks (through your SMS provider) before the networks will deliver it.
+              The provider and its keys are configured in Supabase, never in this app.
+            </p>
+          </div>
+        </section>
       </fieldset>
+
+      <TestSms />
 
       <section className="card">
         <h3 className="set-title"><Icon name="shield" size={18} /> Compliance Locks</h3>
@@ -132,5 +152,39 @@ export default function Settings() {
         )}
       </section>
     </div>
+  );
+}
+
+/** Sends one test SMS through the configured provider (or records it in demo mode). */
+function TestSms() {
+  const { state, dispatch, online } = useStore();
+  const [phone, setPhone] = useState('+260 97');
+  const [sent, setSent] = useState('');
+  const ok = phone.replace(/\D/g, '').length >= 9;
+  const last = (state.sms || []).find((s) => s.ruleId === 'test');
+  return (
+    <section className="card">
+      <h3 className="set-title"><Icon name="check" size={18} /> Send a Test SMS</h3>
+      <div className="actions tight">
+        <input className="mono" value={phone} onChange={(e) => { setPhone(e.target.value); setSent(''); }} aria-label="Phone number for test SMS" />
+        <button
+          className="btn"
+          disabled={!ok}
+          onClick={() => {
+            dispatch({ type: 'queueSms', items: [{ ruleId: 'test', phone: phone.trim() }] });
+            setSent(online ? 'Queued – check the result below or in Notifications → SMS Outbox.' : 'Demo mode – recorded in Notifications → SMS Outbox, not sent.');
+          }}
+        >
+          Send test SMS
+        </button>
+      </div>
+      {sent && <p className="muted small mt8">{sent}</p>}
+      {last && (
+        <p className="small mt8">
+          Last test to <span className="mono">{last.phone}</span>: <b>{last.status === 'sent' && last.provider === 'test' ? 'test mode (not delivered)' : last.status}</b>
+          {last.error && last.status !== 'sent' ? <span className="red-text"> – {last.error}</span> : null}
+        </p>
+      )}
+    </section>
   );
 }

@@ -230,7 +230,8 @@ export function makeSeed() {
     timezone: 'Africa/Lusaka',
     graceDays: 3,
     penaltyPct: 5,
+    smsSender: 'AFRICO',
   };
 
-  return { role: 'admin', customers, applications, loans, payments, audit, tickets, collections, penalties: [], statement, rules, staff, settings };
+  return { role: 'admin', customers, applications, loans, payments, audit, tickets, collections, penalties: [], statement, rules, staff, settings, sms: [] };
 }

@@ -15,7 +15,7 @@ const BUCKETS = [
 ];
 
 export default function Emi({ go, sub }) {
-  const { state, loanInfo, customerName, today } = useStore();
+  const { state, loanInfo, customerName, today, dispatch, online } = useStore();
   const tab = ['overdue', 'upcoming', 'collections', 'calculator'].includes(sub) ? sub : 'overdue';
   const [collect, setCollect] = useState(null);
   const openAccount = (id) => go(`loans/${id}`);
@@ -30,6 +30,18 @@ export default function Emi({ go, sub }) {
   const upcoming = instalments.filter((r) => r.due >= today && r.due <= addDays(today, 30)).sort((a, b) => a.due.localeCompare(b.due));
   const delinquent = overdue.reduce((s, r) => s + r.remaining, 0);
 
+  // One SMS per loan: the oldest overdue instalment, or the next upcoming one.
+  const sendReminders = (kind) => {
+    const rows = kind === 'overdue' ? overdue : upcoming;
+    const seen = new Set();
+    const items = rows
+      .filter((r) => (seen.has(r.loan.id) ? false : seen.add(r.loan.id)))
+      .map((r) => ({ ruleId: kind, customerId: r.loan.customerId, loanId: r.loan.id, vars: { loan: r.loan.id, amount: money(r.remaining), due: fmtDate(r.due) } }));
+    if (!items.length) return;
+    const what = kind === 'overdue' ? 'overdue notice' : 'due-date reminder';
+    if (!confirm(`Send ${items.length} ${what} SMS${items.length === 1 ? '' : 'es'}?${online ? '' : ' (Demo mode – nothing is actually sent.)'}`)) return;
+    dispatch({ type: 'queueSms', items });
+  };
   const exportOverdue = () =>
     downloadCsv('overdue-instalments.csv', [
       ['Borrower', 'Account', 'Instalment', 'Due date', 'Days overdue', 'Remaining due', 'Late penalty', 'Phone'],
@@ -52,6 +64,9 @@ export default function Emi({ go, sub }) {
             <p className="muted">Track instalments, chase late payers by how many days overdue, and work out repayments.</p>
           </div>
           <div className="actions tight">
+            {(tab === 'overdue' || tab === 'upcoming') && (
+              <button className="btn ghost" onClick={() => sendReminders(tab)} disabled={!(tab === 'overdue' ? overdue : upcoming).length}><Icon name="card" size={16} /> Send SMS reminders</button>
+            )}
             <button className="btn outline-red" onClick={exportOverdue} disabled={!overdue.length}><Icon name="file" size={16} /> Export Overdue CSV</button>
             {can(state.role, 'payment') && <button className="btn" onClick={() => setPosting(true)}><Icon name="card" size={16} /> Post Payment</button>}
           </div>

@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { loadAll, online, supabase, syncDiff } from './db';
+import { loadAll, online, sendSms, supabase, syncDiff } from './db';
+import { smsAllowed, smsId, smsText } from './sms';
 import { BRAND, CHANNEL_POLICY, DEPARTMENTS, NOTIFY_RULES, ROLES } from './config';
-import { addMonths, allocate, buildSchedule, isoToday, money, product, summarize } from './finance';
+import { addMonths, allocate, buildSchedule, fmtDate, isoToday, money, product, summarize } from './finance';
 import { ids, makeSeed } from './seed';
 
 const KEY = 'afric-demo-v11';
@@ -15,6 +16,7 @@ function load() {
       const saved = JSON.parse(raw);
       // fill in any section added in a newer version of the demo (e.g. settings, staff)
       for (const k of Object.keys(seed)) if (saved[k] === undefined) saved[k] = seed[k];
+      saved.settings = { ...seed.settings, ...saved.settings }; // new settings fields get their defaults
       return saved;
     }
   } catch {}
@@ -26,6 +28,37 @@ const name = (state, customerId) => state.customers.find((c) => c.id === custome
 
 // Name recorded on actions: the signed-in staff member (database mode) or the demo role's sample user.
 const actorName = (state) => state.actor?.name || ROLES[state.role].user;
+
+/**
+ * Adds an SMS to the outbox (provider-neutral). Automatic messages respect the
+ * notification rules; `force` is used for manual sends (reminders, test).
+ * Database mode: status 'queued' → the send-sms Edge Function delivers it.
+ * Demo mode: status 'simulated' – nothing leaves the browser.
+ */
+function withSms(state, ruleId, { customerId, loanId, phone, vars = {}, message, force = false }) {
+  if (!smsAllowed() || ruleId === 'whatsapp') return state;
+  if (!force && !state.rules?.[ruleId]) return state;
+  const cust = customerId ? state.customers.find((c) => c.id === customerId) : null;
+  const to = phone || cust?.phone;
+  if (!to) return state;
+  const text = message || smsText(ruleId, { first: cust?.name?.split(' ')[0] || 'Customer', ...vars });
+  const rec = {
+    id: smsId(),
+    at: new Date().toISOString(),
+    customerId: customerId || null,
+    loanId: loanId || null,
+    phone: to,
+    ruleId,
+    message: text.slice(0, 480),
+    status: online ? 'queued' : 'simulated',
+    provider: online ? null : 'demo',
+    providerRef: null,
+    error: null,
+    sentAt: null,
+    by: actorName(state),
+  };
+  return { ...state, sms: [rec, ...(state.sms || [])].slice(0, 500) };
+}
 
 function withLog(state, text) {
   const r = ROLES[state.role];
@@ -105,10 +138,15 @@ function reducer(state, a) {
         schedule: buildSchedule({ principal: app.amount, ratePct: p.ratePct, months: app.months, method: p.method, firstDue: addMonths(disbursedOn, 1) }),
       };
       const applications = state.applications.map((x) => (x.id === a.id ? { ...x, status: 'Disbursed' } : x));
-      return withLog(
+      const next = withLog(
         { ...state, applications, loans: [...state.loans, loan] },
         `Disbursed ${money(loan.principal)} to ${name(state, loan.customerId)} by ${a.method}; opened loan ${loan.id}.`
       );
+      return withSms(next, 'disbursement', {
+        customerId: loan.customerId,
+        loanId: loan.id,
+        vars: { loan: loan.id, amount: money(loan.principal), method: a.method, due: fmtDate(loan.schedule[0].due) },
+      });
     }
 
     case 'payment': {
@@ -125,10 +163,30 @@ function reducer(state, a) {
         verified: !!a.verified,
       };
       const loan = state.loans.find((l) => l.id === a.loanId);
-      return withLog(
-        { ...state, payments: [...state.payments, pay] },
+      const payments = [...state.payments, pay];
+      const next = withLog(
+        { ...state, payments },
         `Recorded ${a.method} payment of ${money(pay.amount)} on ${loan.id} (${name(state, loan.customerId)}), receipt ${pay.id}.`
       );
+      return withSms(next, 'payment', {
+        customerId: loan.customerId,
+        loanId: loan.id,
+        vars: { loan: loan.id, amount: money(pay.amount), receipt: pay.id, balance: money(summarize(loan, payments).balance) },
+      });
+    }
+
+    case 'queueSms': {
+      // a.items: [{ ruleId, customerId?, loanId?, phone?, vars?, message? }]
+      let next = state;
+      for (const it of a.items) next = withSms(next, it.ruleId, { ...it, force: true });
+      const added = next.sms.length - (state.sms || []).length;
+      return added ? withLog(next, `Queued ${added} SMS (${a.items[0].ruleId}${a.items.length > 1 ? ' …' : ''}).`) : state;
+    }
+
+    case 'smsResult': {
+      const byId = Object.fromEntries(a.results.map((r) => [r.id, r]));
+      const sms = (state.sms || []).map((s) => (byId[s.id] ? { ...s, ...byId[s.id] } : s));
+      return { ...state, sms };
     }
 
     case 'collectLog': {
@@ -265,7 +323,7 @@ function reducer(state, a) {
 /** Empty shell used while the database is loading. */
 const emptyState = () => {
   const s = makeSeed();
-  return { ...s, customers: [], applications: [], loans: [], payments: [], audit: [], tickets: [], collections: [], penalties: [], statement: [], staff: [], rules: {} };
+  return { ...s, customers: [], applications: [], loans: [], payments: [], audit: [], tickets: [], collections: [], penalties: [], statement: [], staff: [], rules: {}, sms: [] };
 };
 
 export function StoreProvider({ children }) {
@@ -299,7 +357,8 @@ export function StoreProvider({ children }) {
         setBoot('nostaff');
         return;
       }
-      const next = { ...emptyState(), ...data, role: staff.roleKey, actor: { name: staff.name } };
+      const base = emptyState();
+      const next = { ...base, ...data, settings: { ...base.settings, ...(data.settings || {}) }, role: staff.roleKey, actor: { name: staff.name } };
       synced.current = next;
       dispatch({ type: 'hydrate', state: next });
       setMe(staff);
@@ -332,10 +391,28 @@ export function StoreProvider({ children }) {
     setSaving(true);
     queue.current = queue.current
       .then(() => syncDiff(prev, state))
-      .then(() => setSyncError(''))
+      .then(async () => {
+        setSyncError('');
+        // SMS that were just queued and are now saved: ask the Edge Function to send them.
+        const before = new Set((prev.sms || []).map((s) => s.id));
+        const fresh = (state.sms || []).filter((s) => !before.has(s.id) && s.status === 'queued').map((s) => s.id);
+        if (fresh.length) await deliver(fresh);
+      })
       .catch((e) => setSyncError(e.message))
       .finally(() => setSaving(false));
   }, [state, boot]);
+
+  // Sends (or re-sends) SMS through the Edge Function and records the results locally.
+  const deliver = async (ids) => {
+    try {
+      const results = await sendSms(ids);
+      if (results.length) dispatch({ type: 'smsResult', results });
+    } catch (e) {
+      const at = new Date().toISOString();
+      dispatch({ type: 'smsResult', results: ids.map((id) => ({ id, status: 'failed', error: `Not sent: ${e.message}`, sentAt: null, at })) });
+    }
+  };
+  const retrySms = (ids) => (online ? deliver(ids) : Promise.resolve());
 
   const signOut = () => online && supabase.auth.signOut();
   const reloadFromDb = async () => {
@@ -352,7 +429,7 @@ export function StoreProvider({ children }) {
     return { loanInfo, customerName, today, split };
   }, [state]);
 
-  const value = { state, dispatch, ...derived, online, me, boot, bootError, saving, syncError, signOut, reloadFromDb };
+  const value = { state, dispatch, ...derived, online, me, boot, bootError, saving, syncError, signOut, reloadFromDb, retrySms };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

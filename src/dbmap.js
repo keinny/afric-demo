@@ -11,6 +11,7 @@ export const TABLES = {
   penalties: 'penalties',
   collections: 'collections',
   tickets: 'tickets',
+  sms: 'sms_outbox',
   statement: 'statement_lines',
   audit: 'audit_log',
 };
