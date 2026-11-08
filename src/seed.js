@@ -132,7 +132,11 @@ export function makeSeed() {
   });
 
   payments.sort((a, b) => a.date.localeCompare(b.date));
-  payments.forEach((p, i) => (p.id = ids.receipt(i + 1)));
+  payments.forEach((p, i) => {
+    p.id = ids.receipt(i + 1);
+    p.ref = `TXN-${100000 + ((i + 1) * 74923) % 900000}`;
+    p.at = `${p.date}T${String(8 + (i % 9)).padStart(2, '0')}:${String((i * 17) % 60).padStart(2, '0')}:00`;
+  });
 
   const at = (d, t) => `${addDays(today, -d)}T${t}:00`;
   const audit = [

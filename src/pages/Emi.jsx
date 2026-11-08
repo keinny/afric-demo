@@ -3,7 +3,7 @@ import { COLLECTION_ACTIONS, LATE_PENALTY_PCT, PRODUCTS, can } from '../config';
 import { addDays, addMonths, buildSchedule, fmtDate, isoToday, money, penaltyOwed, product } from '../finance';
 import { useStore } from '../store';
 import { Badge, Empty, Field, Icon, Modal, downloadCsv } from '../ui';
-import { LoanDetail, PaymentBody, PaymentForm } from './Loans';
+import { LoanDetail, PaymentBody, PaymentForm, ReceiptModal } from './Loans';
 
 const r2 = (n) => Math.round(n * 100) / 100;
 const penaltyFor = (remaining) => r2((remaining * LATE_PENALTY_PCT) / 100);
@@ -188,16 +188,19 @@ function CollectModal({ row, onClose }) {
   const [note, setNote] = useState('');
   const [promise, setPromise] = useState(addDays(isoToday(), 3));
   const cust = state.customers.find((c) => c.id === row.loan.customerId);
+  const [receipt, setReceipt] = useState(null);
 
-  const paid = ({ amount, toPenalty, method, ref }) => {
+  const paid = ({ amount, toPenalty, method, ref, loanId }) => {
     dispatch({
       type: 'collectLog',
       loanId: row.loan.id,
       action: 'Payment collected',
       note: `${money(amount)} via ${method} (${ref})${toPenalty ? `, incl. ${money(toPenalty)} penalty` : ''}`,
     });
-    onClose();
+    setReceipt({ ref, loanId });
   };
+
+  if (receipt) return <ReceiptModal refNo={receipt.ref} loanId={receipt.loanId} onClose={onClose} />;
   const log = () => {
     dispatch({ type: 'collectLog', loanId: row.loan.id, action, note, promiseDate: action === 'Promise to pay' ? promise : null });
     onClose();

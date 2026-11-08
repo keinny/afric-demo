@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { PAY_METHODS, can } from '../config';
+import { BRAND, PAY_METHODS, can } from '../config';
 import { allocate, fmtDate, isoToday, money, penaltyOwed, product } from '../finance';
 import { useStore } from '../store';
-import { Badge, Card, Empty, Field, Modal } from '../ui';
+import { Badge, Card, Empty, Field, Icon, Modal } from '../ui';
 
 export default function Loans() {
   const { state, loanInfo, customerName } = useStore();
@@ -216,7 +216,7 @@ export function PaymentBody({ loanId, presetAmount, lockLoan, onDone, onCancel }
     if (!ok) return;
     if (toPenalty > 0) dispatch({ type: 'penalty', loanId: lid, amount: toPenalty, method, date, ref });
     if (toLoan > 0) dispatch({ type: 'payment', loanId: lid, amount: toLoan, method, date, ref, note });
-    onDone?.({ amount: amt, toPenalty, toLoan, method, ref });
+    onDone?.({ amount: amt, toPenalty, toLoan, method, ref, loanId: lid });
   };
 
   return (
@@ -279,9 +279,72 @@ export function PaymentBody({ loanId, presetAmount, lockLoan, onDone, onCancel }
 }
 
 export function PaymentForm({ loanId, onClose }) {
+  const [receipt, setReceipt] = useState(null);
+  if (receipt) return <ReceiptModal refNo={receipt.ref} loanId={receipt.loanId} onClose={onClose} />;
   return (
     <Modal title="Record Customer Loan Payment" sub="Post a repayment to the ledger and update the instalment schedule" onClose={onClose}>
-      <PaymentBody loanId={loanId} lockLoan={!!loanId} onDone={onClose} onCancel={onClose} />
+      <PaymentBody loanId={loanId} lockLoan={!!loanId} onDone={(r) => setReceipt(r)} onCancel={onClose} />
+    </Modal>
+  );
+}
+
+/** Official receipt for a payment. Look it up by transaction reference, or by receipt id. */
+export function ReceiptModal({ refNo, paymentId, loanId, onClose }) {
+  const { state, loanInfo, split, customerName } = useStore();
+  const pay = state.payments.find((p) => (paymentId ? p.id === paymentId : p.ref === refNo && p.loanId === loanId));
+  const pen = (state.penalties || []).find((p) => (refNo || pay?.ref) && p.ref === (refNo || pay?.ref) && p.loanId === (loanId || pay?.loanId));
+  const rec = pay || pen;
+
+  if (!rec)
+    return (
+      <Modal title="Official Payment Receipt" onClose={onClose}>
+        <Empty>Receipt not found.</Empty>
+      </Modal>
+    );
+
+  const loan = state.loans.find((l) => l.id === rec.loanId);
+  const parts = pay ? split[pay.id] || { principal: pay.amount, interest: 0 } : { principal: 0, interest: 0 };
+  const fees = pen?.amount || 0;
+  const totalCredited = (pay?.amount || 0) + fees;
+  const when = rec.at
+    ? new Date(rec.at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : fmtDate(rec.date);
+  const print = () => {
+    document.body.classList.add('printing-receipt');
+    window.print();
+    setTimeout(() => document.body.classList.remove('printing-receipt'), 500);
+  };
+
+  return (
+    <Modal title="Official Payment Receipt" onClose={onClose}>
+      <div className="receipt-paper">
+        <div className="receipt-top">
+          <h3>{BRAND.name.toUpperCase()}</h3>
+          <p>Official Electronic Payment Receipt</p>
+          <span className="receipt-no">{pay?.id || pen.id}</span>
+        </div>
+        <dl className="receipt-grid">
+          <div><dt>Date & time</dt><dd>{when}</dd></div>
+          <div><dt>Payment method</dt><dd>{rec.method.toUpperCase()}</dd></div>
+          <div><dt>Customer name</dt><dd className="strong">{customerName(loan.customerId)}</dd></div>
+          <div><dt>Transaction reference</dt><dd className="mono">{rec.ref || '—'}</dd></div>
+          <div><dt>Loan account number</dt><dd className="brand-text strong">{loan.id}</dd></div>
+          <div><dt>Recorded by</dt><dd>{rec.by}</dd></div>
+        </dl>
+        <div className="receipt-alloc">
+          <div className="receipt-alloc-title">Payment allocation</div>
+          <div className="line"><span>Principal repayment</span><b>{money(parts.principal)}</b></div>
+          <div className="line"><span>Interest component</span><b>{money(parts.interest)}</b></div>
+          <div className="line"><span>Fees / late penalty</span><b>{money(fees)}</b></div>
+          <div className="line total"><span>Total amount credited</span><b>{money(totalCredited)}</b></div>
+        </div>
+        <div className="receipt-balance"><span>Remaining loan balance</span><b>{money(loanInfo[loan.id].balance)}</b></div>
+        <p className="receipt-thanks">Thank you for your payment to {BRAND.name}. Please keep this receipt as proof of payment.</p>
+      </div>
+      <div className="modal-foot spread">
+        <button className="btn dark" onClick={print}><Icon name="file" size={16} /> Print Receipt</button>
+        <button className="btn soft" onClick={onClose}>Close</button>
+      </div>
     </Modal>
   );
 }
