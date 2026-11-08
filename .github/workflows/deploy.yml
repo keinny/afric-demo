@@ -17,6 +17,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # The Supabase anon key is stored as a secret in this GitHub environment.
+    # (If you later move it to a repository secret, this line can be removed.)
+    environment: another one
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,9 +29,9 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          # Optional: set these repository secrets to connect the live site to Supabase.
-          # Without them the site runs as the browser-only demo.
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          # Connects the live site to Supabase. The URL is public; the anon key comes from the secret.
+          # Without the key the site runs as the browser-only demo.
+          VITE_SUPABASE_URL: https://rgviawgeypvficrnypiv.supabase.co
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
