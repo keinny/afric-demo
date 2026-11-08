@@ -27,17 +27,18 @@ const PAGES = [
 ];
 
 const fromHash = () => {
-  const h = window.location.hash.replace('#/', '');
-  return PAGES.some((p) => p.id === h) ? h : 'dashboard';
+  const [id, sub] = window.location.hash.replace(/^#\/?/, '').split('/');
+  return PAGES.some((p) => p.id === id) ? { id, sub } : { id: 'dashboard' };
 };
 
 export default function App() {
   const { state, dispatch, loanInfo } = useStore();
-  const [page, setPage] = useState(fromHash);
+  const [route, setRoute] = useState(fromHash);
+  const page = route.id;
   const [menu, setMenu] = useState(false);
 
   useEffect(() => {
-    const on = () => setPage(fromHash());
+    const on = () => setRoute(fromHash());
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
@@ -94,8 +95,8 @@ export default function App() {
         <header className="topbar">
           <button className="icon-btn menu-btn" onClick={() => setMenu(true)} aria-label="Menu">☰</button>
           <div className="title">
-            <h1>{current.label}</h1>
-            <p className="muted">{BRAND.tagline}</p>
+            <p className="crumb muted">{BRAND.name} / {current.label}{route.sub ? ` / ${decodeURIComponent(route.sub)}` : ''}</p>
+            <h1>{page === 'applications' ? (route.sub ? 'Application Review' : 'Loan Applications Pipeline') : current.label}</h1>
           </div>
           <label className="role">
             <span className="muted small">Acting as</span>
@@ -106,7 +107,7 @@ export default function App() {
             </select>
           </label>
         </header>
-        <Page go={go} />
+        <Page key={page + (route.sub || '')} go={go} sub={route.sub} />
       </main>
     </div>
   );

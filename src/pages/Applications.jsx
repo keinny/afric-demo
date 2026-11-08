@@ -1,147 +1,278 @@
 import { useState } from 'react';
 import { APP_STATUSES, CHECKLIST, PAY_METHODS, PRODUCTS, can } from '../config';
-import { estimateInstallment, fmtDate, money, product } from '../finance';
+import { addMonths, buildSchedule, estimateInstallment, fmtDate, isoToday, money, product } from '../finance';
 import { useStore } from '../store';
 import { Badge, Card, Empty, Field, Modal } from '../ui';
+import { Ledger } from './Loans';
 
-export default function Applications() {
-  const { state, customerName } = useStore();
-  const [filter, setFilter] = useState('All');
-  const [openId, setOpenId] = useState(null);
+export default function Applications({ go, sub }) {
+  if (sub) return <Review id={decodeURIComponent(sub)} go={go} />;
+  return <ApplicationList go={go} />;
+}
+
+/* ---------------- List ---------------- */
+function ApplicationList({ go }) {
+  const { state } = useStore();
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('All');
   const [creating, setCreating] = useState(false);
+  const cust = (id) => state.customers.find((c) => c.id === id) || {};
 
   const list = state.applications
-    .filter((a) => filter === 'All' || a.status === filter)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const count = (s) => state.applications.filter((a) => a.status === s).length;
+    .filter((a) => status === 'All' || a.status === status)
+    .filter((a) => {
+      const c = cust(a.customerId);
+      return `${a.id} ${c.name} ${c.nrc} ${product(a.productId).name}`.toLowerCase().includes(q.trim().toLowerCase());
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
 
   return (
     <div className="page">
-      <Card
-        title="Loan applications"
-        sub="Submitted → In Review → Approved → Disbursed"
-        action={can(state.role, 'apply') && <button className="btn" onClick={() => setCreating(true)}>+ New application</button>}
-      >
-        <div className="tabs">
-          {['All', ...APP_STATUSES].map((s) => (
-            <button key={s} className={filter === s ? 'active' : ''} onClick={() => setFilter(s)}>
-              {s} <span>{s === 'All' ? state.applications.length : count(s)}</span>
-            </button>
-          ))}
+      <div className="card toolbar">
+        <div className="search">
+          <span aria-hidden>⌕</span>
+          <input placeholder="Search by application #, applicant, NRC, product…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
+        <label className="filter">
+          <span className="muted small">Status</span>
+          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="All">All statuses ({state.applications.length})</option>
+            {APP_STATUSES.map((s) => (
+              <option key={s} value={s}>{s} ({state.applications.filter((a) => a.status === s).length})</option>
+            ))}
+          </select>
+        </label>
+        {can(state.role, 'apply') && <button className="btn" onClick={() => setCreating(true)}>+ New application</button>}
+      </div>
+
+      <Card className="flush">
         {list.length ? (
           <div className="table-wrap">
-            <table className="clickable">
+            <table className="apps">
               <thead>
-                <tr><th>Application</th><th>Date</th><th>Customer</th><th>Product</th><th className="num">Amount</th><th className="num">Term</th><th>Checks</th><th>Status</th></tr>
+                <tr>
+                  <th>Application #</th><th>Applicant</th><th>Product</th><th className="num">Requested principal</th>
+                  <th>Tenure</th><th>Status</th><th>Submitted</th><th className="right">Actions</th>
+                </tr>
               </thead>
               <tbody>
-                {list.map((a) => (
-                  <tr key={a.id} onClick={() => setOpenId(a.id)}>
-                    <td className="mono">{a.id}</td>
-                    <td>{fmtDate(a.createdAt)}</td>
-                    <td>{customerName(a.customerId)}</td>
-                    <td>{product(a.productId).name}</td>
-                    <td className="num">{money(a.amount)}</td>
-                    <td className="num">{a.months} mo</td>
-                    <td>{a.checklist.filter(Boolean).length}/6</td>
-                    <td><Badge>{a.status}</Badge></td>
-                  </tr>
-                ))}
+                {list.map((a) => {
+                  const c = cust(a.customerId);
+                  return (
+                    <tr key={a.id}>
+                      <td className="mono strong">{a.id}</td>
+                      <td><strong>{c.name}</strong><div className="muted small">NRC: {c.nrc}</div></td>
+                      <td>{product(a.productId).name}</td>
+                      <td className="num amount">{money(a.amount)}</td>
+                      <td className="nowrap">{a.months} Mo (Monthly)</td>
+                      <td><Badge>{a.status}</Badge></td>
+                      <td className="nowrap muted">{fmtDate(a.createdAt)}</td>
+                      <td className="right"><button className="btn soft small" onClick={() => go(`applications/${a.id}`)}>Review</button></td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         ) : (
-          <Empty>No applications with this status.</Empty>
+          <Empty>No applications match your search.</Empty>
         )}
       </Card>
-      {openId && <AppDetail id={openId} onClose={() => setOpenId(null)} />}
       {creating && <NewApplication onClose={() => setCreating(false)} />}
     </div>
   );
 }
 
-export function AppDetail({ id, onClose }) {
+/* ---------------- Review page ---------------- */
+function Review({ id, go }) {
   const { state, dispatch, customerName } = useStore();
   const app = state.applications.find((a) => a.id === id);
-  const p = product(app.productId);
   const [method, setMethod] = useState(PAY_METHODS[0]);
-  const [note, setNote] = useState('');
+  const [decision, setDecision] = useState('');
+  const [noteText, setNoteText] = useState('');
+
+  if (!app)
+    return (
+      <div className="page">
+        <Card><Empty>Application {id} was not found. <button className="link" onClick={() => go('applications')}>Back to applications</button></Empty></Card>
+      </div>
+    );
+
+  const c = state.customers.find((x) => x.id === app.customerId) || {};
+  const p = product(app.productId);
+  const loan = state.loans.find((l) => l.appId === app.id);
   const role = state.role;
   const canCheck = can(role, 'verify') && ['Submitted', 'In Review'].includes(app.status);
-  const allChecked = app.checklist.every(Boolean);
-  const inst = estimateInstallment(app.productId, app.amount, app.months);
+  const passed = app.checklist.filter(Boolean).length;
+  const allPassed = passed === CHECKLIST.length;
+  const preview = buildSchedule({ principal: app.amount, ratePct: p.ratePct, months: app.months, method: p.method, firstDue: addMonths(isoToday(), 1) });
+  const totalRepay = preview.reduce((s, r) => s + r.total, 0);
+  const notes = (app.notes || []).slice().reverse();
 
   return (
-    <Modal title={`${app.id} · ${customerName(app.customerId)}`} onClose={onClose} wide>
-      <div className="detail-grid">
-        <div><span className="muted small">Status</span><Badge>{app.status}</Badge></div>
-        <div><span className="muted small">Product</span><strong>{p.name}</strong></div>
-        <div><span className="muted small">Amount</span><strong>{money(app.amount)}</strong></div>
-        <div><span className="muted small">Term</span><strong>{app.months} months</strong></div>
-        <div><span className="muted small">Rate</span><strong>{p.ratePct}% / month ({p.method === 'flat' ? 'flat' : 'reducing balance'})</strong></div>
-        <div><span className="muted small">First instalment</span><strong>{money(inst)}</strong></div>
-        <div><span className="muted small">Purpose</span><strong>{app.purpose || '—'}</strong></div>
-        <div><span className="muted small">Captured</span><strong>{fmtDate(app.createdAt)}</strong></div>
-      </div>
+    <div className="page">
+      <section className="card review-head">
+        <div className="review-title">
+          <button className="icon-btn back" onClick={() => go('applications')} aria-label="Back to applications">←</button>
+          <div>
+            <h2>{app.id} <Badge>{app.status}</Badge></h2>
+            <p className="muted small">Submitted {fmtDate(app.createdAt)} · Assigned to {app.assignedTo || '—'}</p>
+          </div>
+        </div>
+        <div className="summary">
+          <div><span>Applicant</span><strong>{c.name}</strong></div>
+          <div><span>Product</span><strong>{p.name}</strong></div>
+          <div><span>Requested amount</span><strong className="amount">{money(app.amount)}</strong></div>
+          <div><span>Tenure</span><strong>{app.months} Months (Monthly)</strong></div>
+        </div>
+      </section>
 
-      <h4>Verification checklist</h4>
-      <ul className="checklist">
-        {CHECKLIST.map((c, i) => (
-          <li key={c}>
-            <label>
-              <input
-                type="checkbox"
-                checked={app.checklist[i]}
-                disabled={!canCheck}
-                onChange={(e) => dispatch({ type: 'check', id: app.id, index: i, value: e.target.checked })}
-              />
-              {c}
-            </label>
-          </li>
-        ))}
-      </ul>
-      {!canCheck && ['Submitted', 'In Review'].includes(app.status) && <p className="muted small">Switch to Verification Officer to tick checks.</p>}
-      {app.note && <p className="note">Note: {app.note}</p>}
+      <div className="review-grid">
+        <div className="col">
+          <Card title="Application details & purpose">
+            <dl className="details">
+              <div><dt>NRC number</dt><dd>{c.nrc}</dd></div>
+              <div><dt>Phone</dt><dd>{c.phone}</dd></div>
+              <div><dt>Declared monthly income</dt><dd>{app.income ? money(app.income) : '—'}</dd></div>
+              <div><dt>Interest method</dt><dd>{p.method === 'flat' ? 'Flat rate' : 'Reducing balance'} · {p.ratePct}% / month</dd></div>
+              <div><dt>Employer / business</dt><dd>{c.employer} ({c.type})</dd></div>
+              <div><dt>Town</dt><dd>{c.town}</dd></div>
+              <div className="wide"><dt>Purpose</dt><dd>{app.purpose || '—'}</dd></div>
+            </dl>
+          </Card>
 
-      <div className="actions">
-        {app.status === 'Submitted' && can(role, 'verify') && (
-          <button className="btn" onClick={() => dispatch({ type: 'status', id: app.id, status: 'In Review' })}>Start review</button>
-        )}
-        {app.status === 'In Review' && can(role, 'decide') && (
-          <>
-            <input className="grow" placeholder="Decision note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-            <button className="btn danger" onClick={() => dispatch({ type: 'status', id: app.id, status: 'Rejected', note })}>Reject</button>
-            <button className="btn" disabled={!allChecked} title={allChecked ? '' : 'All checks must be ticked first'} onClick={() => dispatch({ type: 'status', id: app.id, status: 'Approved', note })}>
-              Approve
+          <Card title="Risk & KYC checklist" sub={<>Overall status: <strong className={allPassed ? 'green-text' : ''}>{allPassed ? 'PASSED' : `IN PROGRESS (${passed}/${CHECKLIST.length})`}</strong></>}>
+            <ul className="checks">
+              {CHECKLIST.map((item, i) => {
+                const ok = app.checklist[i];
+                return (
+                  <li key={item.label}>
+                    <button
+                      className={`check-btn ${ok ? 'ok' : ''}`}
+                      disabled={!canCheck}
+                      onClick={() => dispatch({ type: 'check', id: app.id, index: i, value: !ok })}
+                      aria-label={`${ok ? 'Untick' : 'Tick'} ${item.label}`}
+                    >
+                      {ok ? '✓' : ''}
+                    </button>
+                    <div className="grow-1">
+                      <strong>{item.label}</strong>
+                      <span className="muted small">{item.hint}</span>
+                    </div>
+                    <span className={`tag ${ok ? 'pass' : 'pending'}`}>{ok ? 'PASSED' : 'PENDING'}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            {!canCheck && ['Submitted', 'In Review'].includes(app.status) && (
+              <p className="muted small">Switch to Verification Officer (top bar) to tick checks.</p>
+            )}
+          </Card>
+
+          {loan ? (
+            <Card title="Loan ledger" sub={`${loan.id} · disbursed ${fmtDate(loan.disbursedOn)}`} action={<button className="link" onClick={() => go('loans')}>Loan accounts</button>}>
+              <Ledger loan={loan} />
+            </Card>
+          ) : (
+            <Card title="Repayment estimate" sub="What the customer will pay if disbursed today">
+              <div className="mini-stats">
+                <div><span>Monthly instalment</span><strong>{money(preview[0]?.total)}</strong></div>
+                <div><span>Total interest</span><strong>{money(totalRepay - app.amount)}</strong></div>
+                <div><span>Total repayable</span><strong>{money(totalRepay)}</strong></div>
+                <div><span>Instalment vs income</span><strong>{app.income ? `${((preview[0]?.total / app.income) * 100).toFixed(0)}%` : '—'}</strong></div>
+              </div>
+            </Card>
+          )}
+        </div>
+
+        <div className="col">
+          <Card title="Decision">
+            <Workflow app={app} role={role} method={method} setMethod={setMethod} decision={decision} setDecision={setDecision} allPassed={allPassed} dispatch={dispatch} />
+          </Card>
+
+          <Card title="Internal review notes">
+            <textarea placeholder="Add committee notes or officer remarks…" value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={3} />
+            <button
+              className="btn dark block"
+              disabled={!noteText.trim()}
+              onClick={() => {
+                dispatch({ type: 'addNote', id: app.id, text: noteText.trim() });
+                setNoteText('');
+              }}
+            >
+              Add note
             </button>
-          </>
-        )}
-        {app.status === 'Approved' && can(role, 'disburse') && (
-          <>
-            <select value={method} onChange={(e) => setMethod(e.target.value)}>
-              {PAY_METHODS.map((m) => <option key={m}>{m}</option>)}
-            </select>
-            <button className="btn" onClick={() => { dispatch({ type: 'disburse', id: app.id, method }); onClose(); }}>
-              Disburse {money(app.amount)}
-            </button>
-          </>
-        )}
-        <NextStepHint app={app} role={role} />
+            {notes.length ? (
+              <ul className="note-list">
+                {notes.map((n, k) => (
+                  <li key={k}>
+                    <div className="note-meta">
+                      <strong>{n.by}</strong>
+                      <span>{new Date(n.at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <p>{n.text}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted small">No notes yet.</p>
+            )}
+          </Card>
+        </div>
       </div>
-    </Modal>
+    </div>
   );
 }
 
-function NextStepHint({ app, role }) {
+function Workflow({ app, role, method, setMethod, decision, setDecision, allPassed, dispatch }) {
   const need = { Submitted: ['verify', 'Verification Officer'], 'In Review': ['decide', 'Credit Manager'], Approved: ['disburse', 'Finance Officer'] }[app.status];
-  if (!need || can(role, need[0])) return null;
-  return <p className="muted small">Next step is done by the {need[1]}. Switch role in the top bar.</p>;
+  const steps = ['Submitted', 'In Review', 'Approved', 'Disbursed'];
+  const at = steps.indexOf(app.status);
+
+  return (
+    <div className="workflow">
+      <ol className="steps">
+        {steps.map((s, i) => (
+          <li key={s} className={app.status === 'Rejected' ? '' : i < at ? 'done' : i === at ? 'now' : ''}>{s}</li>
+        ))}
+      </ol>
+      {app.status === 'Rejected' && <p className="red-text small">This application was rejected.</p>}
+      {app.status === 'Disbursed' && <p className="green-text small">Loan disbursed. See the ledger for transactions.</p>}
+
+      {app.status === 'Submitted' && can(role, 'verify') && (
+        <button className="btn block" onClick={() => dispatch({ type: 'status', id: app.id, status: 'In Review' })}>Start verification</button>
+      )}
+      {app.status === 'In Review' && can(role, 'decide') && (
+        <>
+          <textarea rows={2} placeholder="Decision reason (saved to notes)" value={decision} onChange={(e) => setDecision(e.target.value)} />
+          <div className="split">
+            <button className="btn danger" onClick={() => { dispatch({ type: 'status', id: app.id, status: 'Rejected', note: decision.trim() }); setDecision(''); }}>Reject</button>
+            <button className="btn" disabled={!allPassed} title={allPassed ? '' : 'All checks must pass first'} onClick={() => { dispatch({ type: 'status', id: app.id, status: 'Approved', note: decision.trim() }); setDecision(''); }}>
+              Approve
+            </button>
+          </div>
+          {!allPassed && <p className="muted small">Approve unlocks when all 6 checks have passed.</p>}
+        </>
+      )}
+      {app.status === 'Approved' && can(role, 'disburse') && (
+        <>
+          <Field label="Pay out by">
+            <select value={method} onChange={(e) => setMethod(e.target.value)}>
+              {PAY_METHODS.map((m) => <option key={m}>{m}</option>)}
+            </select>
+          </Field>
+          <button className="btn block" onClick={() => dispatch({ type: 'disburse', id: app.id, method })}>Disburse {money(app.amount)}</button>
+        </>
+      )}
+      {need && !can(role, need[0]) && <p className="muted small">Next step is done by the {need[1]}. Switch role in the top bar.</p>}
+    </div>
+  );
 }
 
+/* ---------------- New application ---------------- */
 function NewApplication({ onClose }) {
   const { state, dispatch } = useStore();
-  const [f, setF] = useState({ customerId: state.customers[0]?.id, productId: PRODUCTS[0].id, amount: 5000, months: 3, purpose: '' });
+  const [f, setF] = useState({ customerId: state.customers[0]?.id, productId: PRODUCTS[0].id, amount: 5000, months: 3, income: 10000, purpose: '' });
   const p = product(f.productId);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const amountOk = +f.amount >= p.min && +f.amount <= p.max;
@@ -150,7 +281,7 @@ function NewApplication({ onClose }) {
   const submit = (e) => {
     e.preventDefault();
     if (!amountOk || !monthsOk) return;
-    dispatch({ type: 'addApplication', app: { ...f, amount: +f.amount, months: +f.months } });
+    dispatch({ type: 'addApplication', app: { ...f, amount: +f.amount, months: +f.months, income: +f.income || 0 } });
     onClose();
   };
 
@@ -175,6 +306,9 @@ function NewApplication({ onClose }) {
             <input type="number" value={f.months} onChange={set('months')} className={monthsOk ? '' : 'invalid'} />
           </Field>
         </div>
+        <Field label="Declared monthly income">
+          <input type="number" value={f.income} onChange={set('income')} />
+        </Field>
         <Field label="Purpose">
           <input value={f.purpose} onChange={set('purpose')} placeholder="e.g. School fees" />
         </Field>
