@@ -1,3 +1,6 @@
+-- SUPERSEDED: run patch-004-example-email-domain.sql instead (it handles both @africo.demo and @loan.com).
+-- @loan.com is a real domain owned by someone else, so staff logins should not use it.
+
 -- ==========================================================================
 --  Patch 003: move staff emails from @africo.demo to @loan.com
 --  Run once in Supabase → SQL Editor. Safe to re-run (only touches

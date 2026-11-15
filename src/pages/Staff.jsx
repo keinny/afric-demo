@@ -135,7 +135,7 @@ function StaffForm({ id, onClose }) {
       <form className="form" onSubmit={submit}>
         <Field label="Full legal name *"><input value={f.name} onChange={set('name')} placeholder="e.g. Kondwani Banda" autoFocus /></Field>
         <div className="row">
-          <Field label="Work email *"><input type="email" value={f.email} onChange={set('email')} placeholder="k.banda@loan.com" /></Field>
+          <Field label="Work email *"><input type="email" value={f.email} onChange={set('email')} placeholder="k.banda@example.com" /></Field>
           <Field label="Phone number *"><input value={f.phone} onChange={set('phone')} /></Field>
         </div>
         <div className="row">

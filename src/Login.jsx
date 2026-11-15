@@ -1,6 +1,15 @@
 import { useState } from 'react';
+import { DEMO_CONTACT } from './config';
 import { supabase } from './db';
 import { useStore } from './store';
+
+// The contact address is assembled only when clicked, so it never appears as plain
+// text in the page – this stops most bots from harvesting it.
+const requestDemo = (e) => {
+  e.preventDefault();
+  const to = `${DEMO_CONTACT.user}@${DEMO_CONTACT.domain}`;
+  window.location.href = `mailto:${to}?subject=${encodeURIComponent(DEMO_CONTACT.subject)}`;
+};
 
 /** Shows the sign-in screen / loading states in database mode, otherwise the app. */
 export default function Gate({ children }) {
@@ -127,7 +136,10 @@ function LoginForm() {
       <label className="field"><span>Password</span><input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
       {error && <p className="red-text small">{error}</p>}
       <button className="btn block" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-      <p className="muted small" style={{ textAlign: 'center', marginTop: 12 }}>Email me at <a href="mailto:Kennethnondo@gmail.com">Kennethnondo@gmail.com</a> if you want to have access to the website for a demo.</p>
+      <p className="muted small" style={{ textAlign: 'center', marginTop: 12 }}>
+        Want to try the system?{' '}
+        <a href="#request-demo" onClick={requestDemo}>Request demo access</a>
+      </p>
     </form>
   );
 }

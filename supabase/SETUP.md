@@ -24,7 +24,7 @@ Staff sign in with Supabase Auth. A sign-in is linked to a staff record **by ema
 2. Link it to the Super Admin staff record (SQL Editor):
 
    ```sql
-   update public.staff set email = 'your-email@example.com' where id = 'AFR-ADM-01';
+   update public.staff set email = 'your-email@example.com' where id in ('LC-ADM-01', 'AFR-ADM-01');
    ```
 
 3. For other staff: create an Auth user for each person, then either add them on the app's **Employees** page with the

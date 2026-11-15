@@ -3,14 +3,17 @@ export const BRAND = {
   name: 'Loan Company',
   legal: 'Loan Company', // used on receipts, statements and agreements
   short: 'Loan Company',
-  tagline: 'Elevating Finances, Empowering Lives',
-  logo: 'aca-logo.png', // in /public
-  prefix: 'AFR', // used in application / loan / receipt numbers
+  tagline: 'Simple, transparent lending',
+  prefix: 'LC', // used in application / loan / staff / ticket numbers (e.g. LC-LN-004)
   currency: 'K',
 };
 
-/** Full URL of the logo (works inside print windows too). */
-export const logoUrl = () => new URL(`${import.meta.env.BASE_URL}${BRAND.logo}`, window.location.href).href;
+// "Request demo access" link on the sign-in page (address is split so it isn't plain text in the page).
+export const DEMO_CONTACT = {
+  user: 'kennethnondo',
+  domain: ['gmail', 'com'].join('.'),
+  subject: 'Demo access request – Loan Management System',
+};
 
 // Monthly interest rate (%), repayment method and limits per product.
 export const PRODUCTS = [
@@ -30,7 +33,7 @@ export const ROLES = {
   analyst: { label: 'Business Analyst', user: 'Daniel Sichone', can: [] },
 };
 
-// Departments used on the Employees page (code is used in staff numbers, e.g. AFR-LO-03).
+// Departments used on the Employees page (code is used in staff numbers, e.g. LC-LO-03).
 export const DEPARTMENTS = [
   { name: 'Executive', code: 'ADM' },
   { name: 'Operations', code: 'MGR' },

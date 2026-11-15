@@ -210,7 +210,7 @@ export function makeSeed() {
     return {
       id: `${BRAND.prefix}-${code}-${String(i + 1).padStart(2, '0')}`,
       name,
-      email: `${name.toLowerCase().replace(/\s+/g, '.')}@loan.com`,
+      email: `${name.toLowerCase().replace(/\s+/g, '.')}@example.com`, // reserved domain: never delivers real email
       phone: `+260 97 100 ${pad(i + 1, 4)}`,
       department,
       designation,

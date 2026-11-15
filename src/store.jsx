@@ -5,7 +5,7 @@ import { BRAND, CHANNEL_POLICY, DEPARTMENTS, NOTIFY_RULES, ROLES } from './confi
 import { addMonths, allocate, buildSchedule, fmtDate, isoToday, money, product, summarize } from './finance';
 import { ids, makeSeed } from './seed';
 
-const KEY = 'afric-demo-v12';
+const KEY = 'afric-demo-v13';
 const Ctx = createContext(null);
 
 function load() {

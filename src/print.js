@@ -5,7 +5,6 @@ export const esc = (s) =>
 
 const shortName = () => BRAND.short;
 
-
 /** Opens a plain A4 document in a new window with the demo watermark, then shows the print dialog. */
 export function printHtml(title, bodyHtml) {
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
@@ -15,10 +14,7 @@ export function printHtml(title, bodyHtml) {
   body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 28px 40px; font-size: 13px; line-height: 1.45; }
   .doc-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 18px; }
   .doc-brand { display: flex; align-items: center; gap: 14px; }
-  .logo-crop { display: block; position: relative; overflow: hidden; aspect-ratio: 1420 / 680; flex-shrink: 0; }
-  .logo-crop img { position: absolute; width: 135.21%; max-width: none; left: -18.31%; top: -29.41%; }
   .center { text-align: center; }
-  .center .logo-crop { margin: 0 auto 8px; }
   .box { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; margin: 12px 0; }
   .box .row { display: flex; justify-content: space-between; padding: 3px 0; }
   .box .row.total { border-top: 1px solid #cbd5e1; margin-top: 6px; padding-top: 8px; font-weight: 800; font-size: 14px; }
@@ -62,7 +58,7 @@ export const docHead = (subtitle, metaLines = []) => `
     <div class="doc-meta">${metaLines.map(esc).join('<br>')}</div>
   </div>`;
 
-/** Centred receipt-style header: logo, company name, subtitle and a reference number. */
+/** Centred receipt-style header: company name, subtitle and a reference number. */
 export const receiptHead = (subtitle, refNo) => `
   <div class="center" style="border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:16px">
     <h1 style="font-size:19px;font-weight:800;margin:0">${esc(BRAND.legal.toUpperCase())}</h1>
