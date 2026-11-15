@@ -96,7 +96,7 @@ Placeholders: `{{to}}` (+260971234567), `{{to_local}}` (0971234567), `{{to_digit
 **Send SMS reminders** button on Repayments & EMI (overdue / upcoming), and the test button.
 Messages are kept to one 160-character segment where possible. WhatsApp is blocked at every level.
 
-**Before going live:** register the sender name (e.g. `AFRICO`) with ZICTA and the networks through your
+**Before going live:** register the sender name (e.g. `LOANCOMPANY`) with ZICTA and the networks through your
 provider – MTN also whitelists sender names and message content.
 
 ## What is enforced in the database

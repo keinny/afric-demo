@@ -1,13 +1,10 @@
-import { BRAND, logoUrl } from './config';
+import { BRAND } from './config';
 
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 const shortName = () => BRAND.short;
 
-/** Cropped logo for printed documents (same crop as the app's <Logo />). */
-const logoHtml = (width = 170) =>
-  `<span class="logo-crop" style="width:${width}px"><img src="${esc(logoUrl())}" alt="${esc(BRAND.legal)}"></span>`;
 
 /** Opens a plain A4 document in a new window with the demo watermark, then shows the print dialog. */
 export function printHtml(title, bodyHtml) {
@@ -61,14 +58,13 @@ ${bodyHtml}
 /** Standard document header: company name + subtitle on the left, meta lines on the right. */
 export const docHead = (subtitle, metaLines = []) => `
   <div class="doc-head">
-    <div class="doc-brand">${logoHtml(150)}<div><h1>${esc(BRAND.legal.toUpperCase())}</h1><p>${esc(subtitle)}</p></div></div>
+    <div class="doc-brand"><div><h1>${esc(BRAND.legal.toUpperCase())}</h1><p>${esc(subtitle)}</p></div></div>
     <div class="doc-meta">${metaLines.map(esc).join('<br>')}</div>
   </div>`;
 
 /** Centred receipt-style header: logo, company name, subtitle and a reference number. */
 export const receiptHead = (subtitle, refNo) => `
   <div class="center" style="border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:16px">
-    ${logoHtml(200)}
     <h1 style="font-size:19px;font-weight:800;margin:0">${esc(BRAND.legal.toUpperCase())}</h1>
     <p style="margin:3px 0 8px;color:#334155">${esc(subtitle)}</p>
     <b style="font-family:Consolas,monospace;border:1px solid #cbd5e1;border-radius:6px;padding:3px 10px">${esc(refNo)}</b>

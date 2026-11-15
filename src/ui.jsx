@@ -123,7 +123,7 @@ export const Kpi = ({ label, value, sub, icon, tone = 'slate', trend, onClick })
  */
 export const Logo = ({ withTagline = false, className = '' }) => (
   <span className={`logo-crop ${withTagline ? 'tall' : ''} ${className}`}>
-    <img src={`${import.meta.env.BASE_URL}aca-logo.png`} alt="Africo Cash Advance" />
+    <img src={`${import.meta.env.BASE_URL}aca-logo.png`} alt="Loan Company" />
   </span>
 );
 

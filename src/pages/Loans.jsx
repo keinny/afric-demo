@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BRAND, PAY_METHODS, can } from '../config';
 import { allocate, fmtDate, isoToday, money, penaltyOwed, product } from '../finance';
 import { useStore } from '../store';
-import { Badge, Card, Empty, Field, Icon, Logo, Modal } from '../ui';
+import { Badge, Card, Empty, Field, Icon, Modal } from '../ui';
 import { docTitle, facts, printHtml, receiptHead } from '../print';
 
 export default function Loans({ go }) {
@@ -336,7 +336,6 @@ export function ReceiptModal({ refNo, paymentId, loanId, onClose }) {
     <Modal title="Official Payment Receipt" onClose={onClose}>
       <div className="receipt-paper">
         <div className="receipt-top">
-          <Logo className="receipt-logo" />
           <h3>{BRAND.legal.toUpperCase()}</h3>
           <p>Official Electronic Payment Receipt</p>
           <span className="receipt-no">{pay?.id || pen.id}</span>

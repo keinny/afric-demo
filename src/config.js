@@ -1,8 +1,8 @@
 // Change these to rebrand the demo.
 export const BRAND = {
-  name: 'Africo Cash Advance',
-  legal: 'Africo Cash Advance Limited', // used on receipts, statements and agreements
-  short: 'Africo',
+  name: 'Loan Company',
+  legal: 'Loan Company', // used on receipts, statements and agreements
+  short: 'Loan Company',
   tagline: 'Elevating Finances, Empowering Lives',
   logo: 'aca-logo.png', // in /public
   prefix: 'AFR', // used in application / loan / receipt numbers

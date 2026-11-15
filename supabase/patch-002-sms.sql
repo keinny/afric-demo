@@ -6,8 +6,8 @@
 --  whichever provider is configured and records the result.
 -- =====================================================================
 
--- Sender name shown on the phone (e.g. AFRICO). Must be registered with ZICTA / the networks.
-alter table public.settings add column if not exists sms_sender text default 'AFRICO';
+-- Sender name shown on the phone (e.g. LOANCOMPANY). Must be registered with ZICTA / the networks.
+alter table public.settings add column if not exists sms_sender text default 'LOANCOMPANY';
 
 create table if not exists public.sms_outbox (
   id            text primary key,                       -- SMS-<time>-<random>

@@ -1,5 +1,5 @@
 -- =====================================================================
---  Africo Cash Advance – Loan Management System
+--  Loan Company – Loan Management System
 --  Supabase / PostgreSQL schema
 --
 --  Run this whole file once in Supabase → SQL Editor → New query → Run.
@@ -252,8 +252,8 @@ end $$;
 drop policy if exists "staff can append" on public.audit_log;
 create policy "staff can append" on public.audit_log for insert to authenticated with check (public.is_staff());
 
--- Sender name shown on the phone (e.g. AFRICO). Must be registered with ZICTA / the networks.
-alter table public.settings add column if not exists sms_sender text default 'AFRICO';
+-- Sender name shown on the phone (e.g. LOANCOMPANY). Must be registered with ZICTA / the networks.
+alter table public.settings add column if not exists sms_sender text default 'LOANCOMPANY';
 
 create table if not exists public.sms_outbox (
   id            text primary key,                       -- SMS-<time>-<random>

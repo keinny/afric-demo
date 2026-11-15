@@ -27,7 +27,7 @@ export default function Settings() {
   };
   const grace = Number(f.graceDays);
   const pct = Number(f.penaltyPct);
-  const valid = f.clientName?.trim() && grace >= 0 && grace <= 60 && pct >= 0 && pct <= 50 && /^[A-Za-z0-9 ]{2,11}$/.test(f.smsSender || 'AFRICO');
+  const valid = f.clientName?.trim() && grace >= 0 && grace <= 60 && pct >= 0 && pct <= 50 && /^[A-Za-z0-9 ]{2,11}$/.test(f.smsSender || 'LOANCOMPANY');
   const dirty = JSON.stringify(f) !== JSON.stringify(state.settings);
 
   const save = () => {

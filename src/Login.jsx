@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { BRAND } from './config';
 import { supabase } from './db';
 import { useStore } from './store';
-import { Logo } from './ui';
 
 /** Shows the sign-in screen / loading states in database mode, otherwise the app. */
 export default function Gate({ children }) {
@@ -26,7 +24,6 @@ export default function Gate({ children }) {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <div className="auth-logo"><Logo withTagline /></div>
         {boot === 'login' && <LoginForm />}
         {boot === 'nostaff' && (
           <>
@@ -47,7 +44,6 @@ export default function Gate({ children }) {
           </>
         )}
       </div>
-      <p className="auth-foot">{BRAND.legal} · Loan Management System</p>
     </div>
   );
 }
@@ -59,7 +55,6 @@ export function AppSkeleton({ label = 'Loading…' }) {
     <div className="shell sk-shell" aria-busy="true" aria-label={label}>
       <aside className="sidebar">
         <div className="brand">
-          <div className="logo-tile"><Logo /></div>
           <div className="brand-line">{bar('60%', 10, 'dark')}</div>
         </div>
         <nav>
@@ -132,6 +127,7 @@ function LoginForm() {
       <label className="field"><span>Password</span><input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
       {error && <p className="red-text small">{error}</p>}
       <button className="btn block" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+      <p className="muted small" style={{ textAlign: 'center', marginTop: 12 }}>Email me at <a href="mailto:Kennethnondo@gmail.com">Kennethnondo@gmail.com</a> if you want to have access to the website for a demo.</p>
     </form>
   );
 }

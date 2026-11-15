@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
   const { data: rows, error } = await admin.from('sms_outbox').select('*').in('id', ids.slice(0, 200)).in('status', ['queued', 'failed']);
   if (error) return json({ error: error.message }, 500);
   const { data: settings } = await admin.from('settings').select('sms_sender').eq('id', 1).maybeSingle();
-  const sender = settings?.sms_sender || 'AFRICO';
+  const sender = settings?.sms_sender || 'LOANCOMPANY';
 
   const results = [];
   for (const row of rows ?? []) {

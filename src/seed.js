@@ -210,7 +210,7 @@ export function makeSeed() {
     return {
       id: `${BRAND.prefix}-${code}-${String(i + 1).padStart(2, '0')}`,
       name,
-      email: `${name.toLowerCase().replace(/\s+/g, '.')}@africo.demo`,
+      email: `${name.toLowerCase().replace(/\s+/g, '.')}@loan.com`,
       phone: `+260 97 100 ${pad(i + 1, 4)}`,
       department,
       designation,
@@ -230,7 +230,7 @@ export function makeSeed() {
     timezone: 'Africa/Lusaka',
     graceDays: 3,
     penaltyPct: 5,
-    smsSender: 'AFRICO',
+    smsSender: 'LOANCOMPANY',
   };
 
   return { role: 'admin', customers, applications, loans, payments, audit, tickets, collections, penalties: [], statement, rules, staff, settings, sms: [] };
