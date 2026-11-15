@@ -222,8 +222,8 @@ export function makeSeed() {
 
   const settings = {
     clientName: BRAND.legal,
-    representative: 'Titus Katepu',
-    developer: 'Pragma Systems OPC Private Limited',
+    representative: '', // filled in by the Super Admin in Settings
+    developer: '',
     currencyCode: 'ZMW',
     symbol: 'K',
     country: 'Zambia',

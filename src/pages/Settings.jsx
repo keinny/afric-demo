@@ -60,9 +60,9 @@ export default function Settings() {
           <div className="form">
             <div className="row">
               <Field label="Client institution name"><input className="strong" value={f.clientName || ''} onChange={set('clientName')} /></Field>
-              <Field label="Client representative"><input className="strong" value={f.representative || ''} onChange={set('representative')} /></Field>
+              <Field label="Client representative"><input className="strong" value={f.representative || ''} onChange={set('representative')} placeholder="e.g. Jane Banda, Operations Manager" /></Field>
             </div>
-            <Field label="Development company"><input value={f.developer || ''} onChange={set('developer')} /></Field>
+            <Field label="Development company"><input value={f.developer || ''} onChange={set('developer')} placeholder="e.g. the company that built or supports this system" /></Field>
           </div>
         </section>
 

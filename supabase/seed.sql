@@ -135,6 +135,6 @@ on conflict (id) do nothing;
 
 -- settings (single row)
 insert into public.settings (id, client_name, representative, developer, currency_code, symbol, country, timezone, grace_days, penalty_pct, sms_sender) values
-  (1, 'Loan Company', 'Titus Katepu', 'Pragma Systems OPC Private Limited', 'ZMW', 'K', 'Zambia', 'Africa/Lusaka', 3, 5, 'LOANCOMPANY')
+  (1, 'Loan Company', '', '', 'ZMW', 'K', 'Zambia', 'Africa/Lusaka', 3, 5, 'LOANCOMPANY')
 on conflict (id) do nothing;
 
